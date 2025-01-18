@@ -4,7 +4,7 @@
 {                 18/09/2019                   }
 {                                              }
 {**********************************************}
-unit Image;
+unit ParseImage;
 
 interface
 
@@ -33,7 +33,7 @@ uses
   Vcl.Imaging.PngImage;
 
 var
-  FPad: String;
+  FPad: string;
 
 function ProcessImage(sData, APad: String): String;
 begin

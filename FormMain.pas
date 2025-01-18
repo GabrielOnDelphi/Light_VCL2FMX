@@ -15,7 +15,7 @@ uses
   FMX.Dialogs,
   FMX.Layouts,
   FMX.Memo,
-  CvtrObj,
+  Parser,
   FMX.StdCtrls,
   FMX.ScrollBox,
   FMX.Controls.Presentation,
@@ -60,8 +60,8 @@ IMPLEMENTATION
 {$R *.fmx}
 
 USES
-  PatchLib,
-  CONFIGINI,
+  Utils,
+  FormConfig,
   FMX.DialogService;
 
 
@@ -84,7 +84,7 @@ end;
 
 procedure TfrmMain.btnConfigClick(Sender: TObject);
 begin
-  TFormConfig.Create(Self).ShowModal;
+  TFrmConfig.Create(Self).ShowModal;
   RegIniLoad;
 end;
 

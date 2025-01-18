@@ -3,12 +3,12 @@ program Light_VCL2FMX;
 uses
   System.StartUpCopy,
   FMX.Forms,
-  CvtrObj in 'CvtrObj.pas',
+  Parser in 'Parser.pas',
   FormMain in 'FormMain.pas' {frmMain},
-  PatchLib in 'PatchLib.pas',
+  Utils in 'Utils.pas',
   FormConfig in 'FormConfig.pas' {frmConfig},
-  Image in 'Image.pas',
-  ImageList in 'ImageList.pas';
+  ParseImage in 'ParseImage.pas',
+  ParseImageList in 'ParseImageList.pas';
 
 {$R *.res}
 

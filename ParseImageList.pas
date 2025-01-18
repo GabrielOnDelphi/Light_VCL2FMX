@@ -4,7 +4,7 @@
 {                 18/09/2019                   }
 {                                              }
 {**********************************************}
-unit ImageList;
+unit ParseImageList;
 
 interface
 
@@ -25,7 +25,7 @@ implementation
 uses
   FMX.ImgList,
   Vcl.Graphics,
-  System.SysUtils ;
+  System.SysUtils;
 
 var
   FPad: String;

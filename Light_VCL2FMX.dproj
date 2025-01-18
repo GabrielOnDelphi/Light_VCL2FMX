@@ -91,18 +91,18 @@
         <DelphiCompile Include="$(MainSource)">
             <MainSource>MainSource</MainSource>
         </DelphiCompile>
-        <DCCReference Include="CvtrObj.pas"/>
+        <DCCReference Include="Parser.pas"/>
         <DCCReference Include="FormMain.pas">
             <Form>frmMain</Form>
             <FormType>fmx</FormType>
         </DCCReference>
-        <DCCReference Include="PatchLib.pas"/>
+        <DCCReference Include="Utils.pas"/>
         <DCCReference Include="FormConfig.pas">
             <Form>frmConfig</Form>
             <FormType>fmx</FormType>
         </DCCReference>
-        <DCCReference Include="Image.pas"/>
-        <DCCReference Include="ImageList.pas"/>
+        <DCCReference Include="ParseImage.pas"/>
+        <DCCReference Include="ParseImageList.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
