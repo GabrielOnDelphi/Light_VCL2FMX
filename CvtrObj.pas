@@ -1,4 +1,4 @@
-unit CvtrObj;
+﻿unit CvtrObj;
 
 interface
 
@@ -101,10 +101,8 @@ implementation
 const
   ContinueCode: String = '#$Continue$#';
 
-{ DfmToFmxObject }
 
-{ Eduardo }
-procedure TDfmToFmxObject.LiveBindings(DfmObject: TObjectList = nil);
+  procedure TDfmToFmxObject.LiveBindings(DfmObject: TObjectList = nil);
 var
   I,J,K,L,M: Integer;
   sProp: String;
@@ -209,7 +207,7 @@ begin
   end;
 end;
 
-{ Eduardo }
+
 function TDfmToFmxObject.GetFMXLiveBindings: String;
 var
   I: Integer;
@@ -283,7 +281,7 @@ begin
   CRLF +'  end ';
 end;
 
-{ Eduardo }
+
 function TDfmToFmxObject.GetPASLiveBindings: String;
 var
   I: Integer;
@@ -309,6 +307,7 @@ begin
   end;
 end;
 
+
 function TDfmToFmxObject.AddArrayOfItemProperties(APropertyIdx: Integer; APad: String): String;
 begin
   Result:=APad+'  item'+ CRLF +
@@ -316,6 +315,7 @@ begin
   APad+ '  end>'+ CRLF;
   //Tempary patch
 end;
+
 
 constructor TDfmToFmxObject.Create(ACreateText: String; AStm: TStream; ADepth: integer);
 var
@@ -347,6 +347,7 @@ begin
   SetLength(F2DPropertyArray, FPropertyMax + 1);
 end;
 
+
 destructor TDfmToFmxObject.Destroy;
 begin
   SetLength(F2DPropertyArray, 0);
@@ -358,6 +359,7 @@ begin
   FUsesTranslation.Free;
   FIniAddProperties.Free;
 end;
+
 
 class function TDfmToFmxObject.DFMIsTextBased(ADfmFileName: String): Boolean;
 var
@@ -396,10 +398,12 @@ begin
   end;
 end;
 
+
 function TDfmToFmxObject.FMXClass: String;
 begin
   Result := FDFMClass;
 end;
+
 
 function TDfmToFmxObject.FMXFile(APad: String = ''): String;
 begin
@@ -411,6 +415,7 @@ begin
   else
     Result := Result + APad +'end' + CRLF;
 end;
+
 
 function TDfmToFmxObject.FMXProperties(APad: String): String;
 var
@@ -442,6 +447,7 @@ begin
       Result := Result + APad +'  '+ StringReplace(FIniAddProperties[i], '=', ' = ', []) + CRLF;
 end;
 
+
 function TDfmToFmxObject.FMXSubObjects(APad: String): String;
 var
   I: integer;
@@ -454,6 +460,7 @@ begin
     if FOwnedObjs[I] is TDfmToFmxObject then
       Result := Result + TDfmToFmxObject(FOwnedObjs[I]).FMXFile(APad +' ');
 end;
+
 
 function TDfmToFmxObject.GenPasFile(const APascalSourceFileName: String): AnsiString;
 var
@@ -507,12 +514,14 @@ begin
   Result := PreUsesString + UsesString + PostUsesString;
 end;
 
+
 function TDfmToFmxObject.IniAddProperties: TStringlist;
 begin
   if FIniAddProperties = nil then
     FIniAddProperties := TStringlist.Create;
   Result := FIniAddProperties;
 end;
+
 
 procedure TDfmToFmxObject.IniFileLoad(AIni: TIniFile);
 var
@@ -559,12 +568,14 @@ begin
     AIni.WriteString(FDFMClass + 'Include', 'FMX.Controls', 'Empty Include');
 end;
 
+
 function TDfmToFmxObject.IniIncludeValues: TStringlist;
 begin
   if FIniIncludeValues = nil then
     FIniIncludeValues := TStringlist.Create;
   Result := FIniIncludeValues;
 end;
+
 
 function TDfmToFmxObject.IniObjectTranslations: TStringList;
 begin
@@ -573,12 +584,14 @@ begin
   Result := FIniObjectTranslations;
 end;
 
+
 function TDfmToFmxObject.IniReplaceValues: TStringlist;
 begin
   if FIniReplaceValues = nil then
     FIniReplaceValues := TStringlist.Create;
   Result := FIniReplaceValues;
 end;
+
 
 function TDfmToFmxObject.IniSectionValues: TStringlist;
 begin
@@ -587,6 +600,7 @@ begin
   Result := FIniSectionValues;
 end;
 
+
 procedure TDfmToFmxObject.LoadInfileDefs(AIniFileName: String);
 var
   Ini: TIniFile;
@@ -594,6 +608,7 @@ begin
   Ini := TIniFile.Create(AIniFileName);
   IniFileLoad(Ini);
 end;
+
 
 function TDfmToFmxObject.OwnedObjs: TObjectList;
 begin
@@ -604,6 +619,7 @@ begin
   end;
   Result := FOwnedObjs;
 end;
+
 
 function TDfmToFmxObject.ProcessCodeBody(const ACodeBody: String): String;
 var
@@ -624,6 +640,7 @@ begin
   Result := BdyStr;
 end;
 
+
 function TDfmToFmxObject.ProcessUsesString(AOrigUsesArray: TArrayOfStrings): String;
 var
   i: integer;
@@ -637,6 +654,7 @@ begin
   SetLength(Result, Pred(Length(Result)));
 end;
 
+
 function TDfmToFmxObject.PropertyArray(ARow: integer): TArrayOfStrings;
 begin
   while ARow >= FPropertyArraySz do
@@ -649,7 +667,7 @@ begin
   Result := F2DPropertyArray[ARow];
 end;
 
-{ Eduardo }
+
 procedure TDfmToFmxObject.ReadItems(Prop: TTwoDArrayOfString; APropertyIdx: integer; AStm: TStream);
 var
   Data: String;
@@ -670,7 +688,7 @@ begin
     Prop[APropertyIdx, 1] := Prop[APropertyIdx, 1] + #13 + sTemp;
 end;
 
-{ Eduardo }
+
 procedure TDfmToFmxObject.ReadData(Prop: TTwoDArrayOfString; APropertyIdx: integer; AStm: TStream);
 var
   Data: String;
@@ -684,7 +702,7 @@ begin
   Prop[APropertyIdx, 1] := Prop[APropertyIdx, 1] + Data;
 end;
 
-{ Eduardo }
+
 procedure TDfmToFmxObject.ReadText(Prop: TTwoDArrayOfString; APropertyIdx: integer; AStm: TStream);
 var
   Data: String;
@@ -697,6 +715,7 @@ begin
   end;
   Prop[APropertyIdx, 1] := Prop[APropertyIdx, 1] + Data;
 end;
+
 
 procedure TDfmToFmxObject.ReadProperties(AData: String; AStm: TStream; var AIdx: Integer);
 begin
@@ -719,6 +738,7 @@ begin
     ReadText(F2DPropertyArray, AIdx, AStm);
   Inc(AIdx);
 end;
+
 
 function TDfmToFmxObject.TransformProperty(ACurrentName, ACurrentValue: String; APad: String = ''): String;
 var
@@ -752,6 +772,7 @@ begin
       Result := s +' = '+ ACurrentValue;
   end;
 end;
+
 
 procedure TDfmToFmxObject.UpdateUsesStringList(AUsesList: TStrings);
 var
@@ -790,12 +811,14 @@ begin
       TDfmToFmxObject(FOwnedObjs[i]).UpdateUsesStringList(AUsesList);
 end;
 
+
 function TDfmToFmxObject.UsesTranslation: TStringlist;
 begin
   if FUsesTranslation = nil then
     FUsesTranslation := TStringlist.Create;
   Result := FUsesTranslation;
 end;
+
 
 function TDfmToFmxObject.WriteFMXToFile(const AFmxFileName: String): Boolean;
 var
@@ -817,6 +840,7 @@ begin
     OutFile.Free;
   end;
 end;
+
 
 function TDfmToFmxObject.WritePasToFile(const APasOutFileName, APascalSourceFileName: String): Boolean;
 var
@@ -842,8 +866,8 @@ begin
   end;
 end;
 
-{ TDfmToFmxListItem }
 
+{ TDfmToFmxListItem }
 constructor TDfmToFmxListItem.Create(AOwner: TDfmToFmxObject; APropertyIdx: integer; AStm: TStream; ADepth: integer);
 var
   Data: String;

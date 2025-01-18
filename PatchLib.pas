@@ -1,6 +1,6 @@
-﻿{$I InnovaLibDefs.inc}
+﻿UNIT PatchLib;
 
-unit PatchLib;
+{$I InnovaLibDefs.inc}
 
 interface
 
@@ -51,16 +51,17 @@ type
   PStrCodeInfoRec = ^StrCodeInfoRec;
 
 const
-  CRLF = AnsiChar(#13) + AnsiChar(#10);
-  ZSISOffset = 0;
-  CR = AnsiChar(#13);
-  LF = AnsiChar(#10);
-  TAB = AnsiChar(#9);
-  CRP = AnsiChar(#141);
-  LFP = AnsiChar(#138);
+  CRLF           = AnsiChar(#13) + AnsiChar(#10);
+  ZSISOffset     = 0;
+  CR             = AnsiChar(#13);
+  LF             = AnsiChar(#10);
+  TAB            = AnsiChar(#9);
+  CRP            = AnsiChar(#141); // (13 + 128);
+  LFP            = AnsiChar(#138); // (10 + 128);
   FirstStrCharNo = 1;
 
-implementation
+IMPLEMENTATION
+
 
 function GetArrayFromString(const S: String; SepVal: Char; ARemoveQuote: Boolean = false; ATrim: Boolean = True; ADropNulls: Boolean = false): TArrayOfStrings;
 var
