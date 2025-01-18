@@ -1,8 +1,10 @@
 program Light_VCL2FMX;
 
 uses
+  FastMM4,
   System.StartUpCopy,
   FMX.Forms,
+  cbAppData,
   Parser in 'Parser.pas',
   FormMain in 'FormMain.pas' {frmMain},
   Utils in 'Utils.pas',
@@ -12,9 +14,17 @@ uses
 
 {$R *.res}
 
-begin
+begin  {
   Application.Initialize;
   ReportMemoryLeaksOnShutdown := False;
   Application.CreateForm(TfrmMain, frmMain);
   Application.Run;
+}
+  AppData:= TAppData.Create('MyCollApp');
+  AppData.CreateMainForm(TfrmMain, frmMain, False, True);   // Main form
+  //TfrmRamLog.CreateGlobalLog;                                 // Log (optional)
+  Application.Run;
 end.
+
+
+

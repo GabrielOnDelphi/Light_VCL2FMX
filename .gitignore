@@ -47,3 +47,4 @@ __recovery/
 # Arquivos de compilacao FMX
 *.vlb
 *.deployproj
+*.cbk

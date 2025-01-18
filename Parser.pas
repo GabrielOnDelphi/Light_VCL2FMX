@@ -104,8 +104,7 @@ const
 
   procedure TDfmToFmxObject.LiveBindings(DfmObject: TObjectList = nil);
 var
-  I,J,K,L,M: Integer;
-  sProp: String;
+  I,J,M: Integer;
   sFields: String;
   obj: TDfmToFmxObject;
   bItem: Boolean;
@@ -528,25 +527,24 @@ var
   i: integer;
   NewClassName: String;
 begin
-  if AIni = nil then
-    Exit;
+  Assert(AIni <> NIL);
+
   if FDepth < 1 then
-  begin
-    AIni.ReadSectionValues('ObjectChanges', IniObjectTranslations);
-    AIni.ReadSectionValues('TForm', IniSectionValues);
-    AIni.ReadSectionValues('TFormReplace', IniReplaceValues);
-    AIni.ReadSection('TFormInclude', IniIncludeValues);
-  end
+   begin
+     AIni.ReadSectionValues('ObjectChanges', IniObjectTranslations);
+     AIni.ReadSectionValues('TForm', IniSectionValues);
+     AIni.ReadSectionValues('TFormReplace', IniReplaceValues);
+     AIni.ReadSection      ('TFormInclude', IniIncludeValues);
+   end
   else
-  begin
-    NewClassName := AIni.ReadString('ObjectChanges', FDFMClass, EmptyStr);
-    if NewClassName <> EmptyStr then
-      FDFMClass := NewClassName;
-    AIni.ReadSectionValues(FDFMClass, IniSectionValues);
-    AIni.ReadSectionValues(FDFMClass + 'Replace', IniReplaceValues);
-    AIni.ReadSection(FDFMClass + 'Include', IniIncludeValues);
-    AIni.ReadSectionValues(FDFMClass + 'AddProperty', IniAddProperties);
-  end;
+   begin
+     NewClassName := AIni.ReadString('ObjectChanges', FDFMClass, EmptyStr);
+     if NewClassName <> EmptyStr then FDFMClass := NewClassName;
+     AIni.ReadSectionValues(FDFMClass, IniSectionValues);
+     AIni.ReadSectionValues(FDFMClass + 'Replace', IniReplaceValues);
+     AIni.ReadSection(FDFMClass + 'Include', IniIncludeValues);
+     AIni.ReadSectionValues(FDFMClass + 'AddProperty', IniAddProperties);
+   end;
 
   for i := 0 to Pred(OwnedObjs.Count) do
     if OwnedObjs[i] is TDfmToFmxObject then
@@ -564,8 +562,8 @@ begin
     AIni.WriteString(FDFMClass, 'Left',  'Position.X');
   end;
 
-  if IniIncludeValues.Count < 1 then
-    AIni.WriteString(FDFMClass + 'Include', 'FMX.Controls', 'Empty Include');
+  if IniIncludeValues.Count < 1
+  then AIni.WriteString(FDFMClass + 'Include', 'FMX.Controls', 'Empty Include');
 end;
 
 

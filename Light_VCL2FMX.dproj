@@ -94,12 +94,10 @@
         <DCCReference Include="Parser.pas"/>
         <DCCReference Include="FormMain.pas">
             <Form>frmMain</Form>
-            <FormType>fmx</FormType>
         </DCCReference>
         <DCCReference Include="Utils.pas"/>
         <DCCReference Include="FormConfig.pas">
             <Form>frmConfig</Form>
-            <FormType>fmx</FormType>
         </DCCReference>
         <DCCReference Include="ParseImage.pas"/>
         <DCCReference Include="ParseImageList.pas"/>
