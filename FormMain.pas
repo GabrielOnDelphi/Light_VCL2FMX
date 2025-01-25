@@ -24,7 +24,7 @@ uses
 type
   TfrmMain = class(TForm)
     mmOutput: TMemo;
-    mmInput: TMemo;
+    mmoInputDfm: TMemo;
     dlgOpen: TOpenDialog;
     dlgSalvar: TSaveDialog;
     Layout1: TLayout;
@@ -40,17 +40,18 @@ type
     procedure btnConfigClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
   private
-    DFMObj: TDfmToFmxObject;
-    ConfigFile: String;
-    FInPasFileName: String;
+    DFMObj: TParser;
+    ConfigDict: String;
+    InputPAS: String;
     InputDFM: String;
     OutputPas: String;
-    FOutFmxFileName: String;
+    OutputFMX: String;
     function GetRegFile: TRegistryIniFile;
     Procedure RegIniLoad;
     Procedure RegIniSave;
     Procedure UpdateForm;
     function MyMessageDialog(const AMessage: string; const ADialogType: TMsgDlgType; const AButtons: TMsgDlgButtons; const ADefaultButton: TMsgDlgBtn): Integer;
+    procedure LoadFile(aFile: string);
   end;
 
 var
@@ -61,6 +62,7 @@ IMPLEMENTATION
 
 USES
   Utils,
+  cbAppDataFmx,
   FormConfig,
   FMX.DialogService;
 
@@ -69,8 +71,6 @@ USES
 procedure TfrmMain.FormCreate(Sender: TObject);
 begin
   RegIniLoad;
-  if NOT FileExists(ConfigFile)
-  then ConfigFile := 'ConversionConfig.ini';
   UpdateForm;
 end;
 
@@ -82,6 +82,11 @@ end;
 
 
 
+
+
+
+
+
 procedure TfrmMain.btnConfigClick(Sender: TObject);
 begin
   TFrmConfig.Create(Self).ShowModal;
@@ -89,56 +94,64 @@ begin
 end;
 
 
+
+
+procedure TfrmMain.LoadFile(aFile: string);
+begin
+  mmoInputDfm.Lines.LoadFromFile(aFile);
+  BtnProcess.Enabled:= TRUE;
+  UpdateForm;
+end;
+
+
 procedure TfrmMain.BtnOpenFileClick(Sender: TObject);
 begin
-  BtnProcess.Enabled := False;
+  BtnProcess.Enabled:= False;
   FreeAndNil(DFMObj);
+
   if InputDFM <> ''
   then dlgOpen.InitialDir := ExtractFileDir(InputDFM);
   if dlgOpen.Execute then
   begin
-    FInPasFileName := ChangeFileExt(dlgOpen.FileName, '.pas');
-    InputDFM := ChangeFileExt(FInPasFileName, '.dfm');
+    InputPAS := ChangeFileExt(dlgOpen.FileName, '.pas');
+    InputDFM := ChangeFileExt(InputPAS, '.dfm');
+
     if FileExists(InputDFM) then
-    begin
-      if TDfmToFmxObject.DFMIsTextBased(InputDFM) then
-      begin
-        mmInput.Lines.Clear;
-        mmInput.Lines.LoadFromFile(InputDFM);
-        BtnProcess.Enabled := True;
-      end
-      else
-        raise Exception.Create('Incompatible dfm file:' + InputDFM);
-    end;
+      if TParser.DFMIsTextBased(InputDFM)
+      then LoadFile(InputDFM)
+      else ShowMessage('Incompatible DFM file:' + InputDFM);
   end;
+
   UpdateForm;
 end;
 
 
 procedure TfrmMain.BtnProcessClick(Sender: TObject);
 var
-  Data: String;
+  DfmContent: String;
   Stm: TStringStream;
 begin
-  if mmInput.Text <> '' then
+  if mmoInputDfm.Text <> '' then
   begin
     FreeAndNil(DFMObj);
-    Data := mmInput.Text;
+
+    DfmContent:= mmoInputDfm.Text;
+
     Stm := TStringStream.Create;
     Stm.LoadFromFile(InputDFM);
     Stm.Seek(0,soFromBeginning);
     try
-      Data := Trim(ReadLineFrmStream(Stm));
-      if Pos('object', Data) = 1
-      then DFMObj := TDfmToFmxObject.Create(Data, Stm, 0);
+      DfmContent := Trim(ReadLineFrmStream(Stm));
+      if Pos('object', DfmContent) = 1
+      then DFMObj := TParser.Create(DfmContent, Stm, 0);
     finally
       Stm.Free;
     end;
   end;
 
   DFMObj.LiveBindings;
+  DFMObj.LoadInfileDefs(ConfigDict);
 
-  DFMObj.LoadInfileDefs(ConfigFile);
   mmOutput.Text := '';
   mmOutput.Text := DFMObj.FMXFile;
   BtnProcess.Enabled := False;
@@ -152,16 +165,15 @@ begin
   mr := mrNone;
 
   TDialogService.MessageDialog(
-    AMessage,
-    ADialogType,
-    AButtons,
-    ADefaultButton,
-    0,
-    procedure (const AResult: TModalResult)
-    begin
-      mr := AResult
-    end
-  );
+      AMessage,
+      ADialogType,
+      AButtons,
+      ADefaultButton,
+      0,
+      procedure (const AResult: TModalResult)
+      begin
+        mr := AResult
+      end);
 
   while mr = mrNone do // wait for modal result
     Application.ProcessMessages;
@@ -172,45 +184,64 @@ end;
 
 procedure TfrmMain.BtnSaveFMXClick(Sender: TObject);
 begin
-  if DFMObj = nil then
-    UpdateForm
+  if DFMObj = nil
+  then UpdateForm
   else
-  begin
-    OutputPas := ExtractFilePath(OutputPas) + ChangeFileExt(ExtractFileName(InputDFM), 'FMX.pas');
+   begin
+     OutputPas := ExtractFilePath(OutputPas) + ChangeFileExt(ExtractFileName(InputDFM), 'FMX.pas');
 
-    if not OutputPas.IsEmpty then
-    begin
-      dlgSalvar.InitialDir := ExtractFileDir(OutputPas);
-      dlgSalvar.FileName   := ExtractFileName(ChangeFileExt(OutputPas, '.fmx'));
-    end;
+     if not OutputPas.IsEmpty then
+     begin
+       dlgSalvar.InitialDir := ExtractFileDir(OutputPas);
+       dlgSalvar.FileName   := ExtractFileName(ChangeFileExt(OutputPas, '.fmx'));
+     end;
 
-    if dlgSalvar.Execute then
-    begin
-      OutputPas := ChangeFileExt(dlgSalvar.FileName, '.pas');
-      FOutFmxFileName := ChangeFileExt(OutputPas, '.fmx');
+     if dlgSalvar.Execute then
+     begin
+       OutputPas := ChangeFileExt(dlgSalvar.FileName, '.pas');
+       OutputFMX := ChangeFileExt(OutputPas, '.fmx');
 
-      if FileExists(FOutFmxFileName) or FileExists(OutputPas) then
-        if myMessageDialog('Replace Existing Files: '+ FOutFmxFileName +' e/ou '+ OutputPas,
-          TMsgDlgType.mtWarning,
-          [TMsgDlgBtn.mbOK, TMsgDlgBtn.mbCancel],
-          TMsgDlgBtn.mbOK) = mrOk then
-        begin
-          DeleteFile(FOutFmxFileName);
-          DeleteFile(OutputPas);
-        end;
+       if FileExists(OutputFMX) or FileExists(OutputPas) then
+         if myMessageDialog('Replace Existing Files: '+ OutputFMX +' e/ou '+ OutputPas,
+           TMsgDlgType.mtWarning,
+           [TMsgDlgBtn.mbOK, TMsgDlgBtn.mbCancel],
+           TMsgDlgBtn.mbOK) = mrOk then
+         begin
+           DeleteFile(OutputFMX);
+           DeleteFile(OutputPas);
+         end;
 
-      if FileExists(FOutFmxFileName) then
-        raise Exception.Create(FOutFmxFileName + 'Já existe');
+       if FileExists(OutputFMX) then
+         raise Exception.Create(OutputFMX + 'Já existe');
 
-      DFMObj.WriteFMXToFile(FOutFmxFileName);
+       DFMObj.WriteFMXToFile(OutputFMX);
 
-      if FileExists(OutputPas) then
-        raise Exception.Create(OutputPas + 'Já existe');
+       if FileExists(OutputPas) then
+         raise Exception.Create(OutputPas + 'Já existe');
 
-      DFMObj.WritePasToFile(OutputPas, FInPasFileName);
-    end;
-  end;
+       DFMObj.WritePasToFile(OutputPas, InputPAS);
+     end;
+   end;
 end;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 function TfrmMain.GetRegFile: TRegistryIniFile;
@@ -219,39 +250,34 @@ begin
 end;
 
 
-
-
-
-
-
 procedure TfrmMain.RegIniLoad;
 Var
   RegFile: TRegistryIniFile;
 begin
   RegFile := GetRegFile;
   try
-    ConfigFile:= RegFile.ReadString('Files', 'ConfigFile',   '');
+    ConfigDict:= RegFile.ReadString('Files', 'ConfigFile',   '');
     InputDFM  := RegFile.ReadString('Files', 'InputDfm',  '');
     OutputPas := RegFile.ReadString('Files', 'OutputPas', '');
 
     if InputDFM <> ''
-    then FInPasFileName := ChangeFileExt(InputDFM, '.pas');
+    then InputPAS := ChangeFileExt(InputDFM, '.pas');
 
     if OutputPas <> '' then
     begin
-      FOutFmxFileName := ChangeFileExt(OutputPas, '.fmx');
+      OutputFMX := ChangeFileExt(OutputPas, '.fmx');
       dlgOpen.InitialDir := ExtractFileDir(OutputPas);
     end;
 
     if FileExists(InputDFM)
-    AND TDfmToFmxObject.DFMIsTextBased(InputDFM) then
-    begin
-      mmInput.Lines.Clear;
-      mmInput.Lines.LoadFromFile(InputDFM);
-    end;
+    AND TParser.DFMIsTextBased(InputDFM)
+    then mmoInputDfm.Lines.LoadFromFile(InputDFM);
   finally
     RegFile.Free;
   end;
+
+  if NOT FileExists(ConfigDict)
+  then ConfigDict := AppData.CurFolder+ 'ConversionDict.ini';
 end;
 
 
@@ -261,9 +287,9 @@ Var
 begin
   RegFile := GetRegFile;
   try
-    RegFile.WriteString('Files', 'ConfigFile', ConfigFile);
-    RegFile.WriteString('Files', 'InputDFm', InputDFM);
-    RegFile.WriteString('Files', 'OutputPas', OutputPas);
+    RegFile.WriteString('Files', 'ConfigFile', ConfigDict);
+    RegFile.WriteString('Files', 'InputDFm'  , InputDFM);
+    RegFile.WriteString('Files', 'OutputPas' , OutputPas);
   finally
     RegFile.Free;
   end;

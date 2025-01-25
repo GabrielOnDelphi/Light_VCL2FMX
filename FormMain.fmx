@@ -30,7 +30,7 @@ object frmMain: TfrmMain
     Viewport.Width = 532.000000000000000000
     Viewport.Height = 656.000000000000000000
   end
-  object mmInput: TMemo
+  object mmoInputDfm: TMemo
     Touch.InteractiveGestures = [Pan, LongTap, DoubleTap]
     DataDetectorTypes = []
     StyledSettings = [Size, Style, FontColor]

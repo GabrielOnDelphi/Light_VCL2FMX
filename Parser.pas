@@ -35,7 +35,7 @@ TYPE
     Columns     : TArray<TLinkGridColumn>;
   end;
 
-  TDfmToFmxObject = class(TObject)
+  TParser = class(TObject)
   private
     FLinkControlList: TArray<TLinkControl>;
     FLinkGridList: TArray<TLinkGrid>;
@@ -87,12 +87,12 @@ TYPE
     class function DFMIsTextBased(ADfmFileName: String): Boolean;
   end;
 
-  TDfmToFmxListItem = class(TDfmToFmxObject)
+  TDfmToFmxListItem = class(TParser)
     FHasMore:Boolean;
     FPropertyIndex:Integer;
-    FOwner:TDfmToFmxObject;
+    FOwner:TParser;
     public
-      constructor Create(AOwner:TDfmToFmxObject;APropertyIdx: integer; AStm: TStream;ADepth: integer);
+      constructor Create(AOwner:TParser;APropertyIdx: integer; AStm: TStream;ADepth: integer);
       property HasMore: Boolean read FHasMore;
     end;
 
@@ -102,11 +102,11 @@ const
   ContinueCode: String = '#$Continue$#';
 
 
-  procedure TDfmToFmxObject.LiveBindings(DfmObject: TObjectList = nil);
+procedure TParser.LiveBindings(DfmObject: TObjectList = nil);
 var
-  I,J,M: Integer;
+  I,J: Integer;
   sFields: String;
-  obj: TDfmToFmxObject;
+  obj: TParser;
   bItem: Boolean;
   sItem: String;
   slItem: TStringDynArray;
@@ -119,10 +119,10 @@ begin
   for I := 0 to Pred(DfmObject.Count) do
   begin
     // Se for de conversão
-    if DfmObject[I] is TDfmToFmxObject then
+    if DfmObject[I] is TParser then
     begin
       // Obtem o objeto
-      obj := TDfmToFmxObject(DfmObject[I]);
+      obj := TParser(DfmObject[I]);
 
       // Se for uma grid
       if obj.FDFMClass.Equals('TDBGrid') then
@@ -166,7 +166,7 @@ begin
                 FLinkGridList[Pred(Length(FLinkGridList))].Columns[Pred(Length(FLinkGridList[Pred(Length(FLinkGridList))].Columns))].Width := Trim(SplitString(sItem, '=')[1]);
             end;
           end;
-          
+
           // Se ja encontrou tudo, sai do loop
           if not FLinkGridList[Pred(Length(FLinkGridList))].DataSource.IsEmpty and not sFields.IsEmpty then
             Break;
@@ -207,7 +207,7 @@ begin
 end;
 
 
-function TDfmToFmxObject.GetFMXLiveBindings: String;
+function TParser.GetFMXLiveBindings: String;
 var
   I: Integer;
   J: Integer;
@@ -252,21 +252,21 @@ begin
       Result := Result +
       CRLF +'        item '+
       CRLF +'          MemberName = '+ FLinkGridList[I].Columns[J].FieldName;
-      
+
       // Se tem Caption
       if not FLinkGridList[I].Columns[J].Caption.IsEmpty then
       begin
         Result := Result +
-        CRLF +'          Header = '+ FLinkGridList[I].Columns[J].Caption;      
+        CRLF +'          Header = '+ FLinkGridList[I].Columns[J].Caption;
       end;
-      
+
       // Se tem Width
       if not FLinkGridList[I].Columns[J].Width.IsEmpty then
       begin
         Result := Result +
-        CRLF +'          Width = '+ FLinkGridList[I].Columns[J].Width;      
+        CRLF +'          Width = '+ FLinkGridList[I].Columns[J].Width;
       end;
-      
+
       Result := Result +
       CRLF +'        end ';
     end;
@@ -281,7 +281,7 @@ begin
 end;
 
 
-function TDfmToFmxObject.GetPASLiveBindings: String;
+function TParser.GetPASLiveBindings: String;
 var
   I: Integer;
 begin
@@ -307,7 +307,7 @@ begin
 end;
 
 
-function TDfmToFmxObject.AddArrayOfItemProperties(APropertyIdx: Integer; APad: String): String;
+function TParser.AddArrayOfItemProperties(APropertyIdx: Integer; APad: String): String;
 begin
   Result:=APad+'  item'+ CRLF +
   APad+ '  Prop1 = 6'+ CRLF +
@@ -316,7 +316,7 @@ begin
 end;
 
 
-constructor TDfmToFmxObject.Create(ACreateText: String; AStm: TStream; ADepth: integer);
+constructor TParser.Create(ACreateText: String; AStm: TStream; ADepth: integer);
 var
   InputArray: TArrayOfStrings;
   Data: String;
@@ -335,7 +335,7 @@ begin
     while Data <> AnsiString('end') do
     begin
       if Pos(AnsiString('object'), Data) = 1 then
-        OwnedObjs.Add(TDfmToFmxObject.Create(Data, AStm, FDepth + 1))
+        OwnedObjs.Add(TParser.Create(Data, AStm, FDepth + 1))
       else
         ReadProperties(Data,AStm,i);
       Data := Trim(ReadLineFrmStream(AStm));
@@ -347,7 +347,7 @@ begin
 end;
 
 
-destructor TDfmToFmxObject.Destroy;
+destructor TParser.Destroy;
 begin
   SetLength(F2DPropertyArray, 0);
   FOwnedObjs.Free;
@@ -360,7 +360,7 @@ begin
 end;
 
 
-class function TDfmToFmxObject.DFMIsTextBased(ADfmFileName: String): Boolean;
+class function TParser.DFMIsTextBased(ADfmFileName: String): Boolean;
 var
   Sz: Int64;
   Idx: integer;
@@ -398,13 +398,13 @@ begin
 end;
 
 
-function TDfmToFmxObject.FMXClass: String;
+function TParser.FMXClass: String;
 begin
   Result := FDFMClass;
 end;
 
 
-function TDfmToFmxObject.FMXFile(APad: String = ''): String;
+function TParser.FMXFile(APad: String = ''): String;
 begin
   Result := APad +'object '+ FObjName +': '+ FMXClass + CRLF;
   Result := Result + FMXProperties(APad);
@@ -416,7 +416,7 @@ begin
 end;
 
 
-function TDfmToFmxObject.FMXProperties(APad: String): String;
+function TParser.FMXProperties(APad: String): String;
 var
   i: Integer;
   sProp: String;
@@ -447,7 +447,7 @@ begin
 end;
 
 
-function TDfmToFmxObject.FMXSubObjects(APad: String): String;
+function TParser.FMXSubObjects(APad: String): String;
 var
   I: integer;
 begin
@@ -456,12 +456,12 @@ begin
     Exit;
 
   for I := 0 to Pred(FOwnedObjs.Count) do
-    if FOwnedObjs[I] is TDfmToFmxObject then
-      Result := Result + TDfmToFmxObject(FOwnedObjs[I]).FMXFile(APad +' ');
+    if FOwnedObjs[I] is TParser then
+      Result := Result + TParser(FOwnedObjs[I]).FMXFile(APad +' ');
 end;
 
 
-function TDfmToFmxObject.GenPasFile(const APascalSourceFileName: String): AnsiString;
+function TParser.GenPasFile(const APascalSourceFileName: String): AnsiString;
 var
   PasFile: TFileStream;
   PreUsesString, PostUsesString, UsesString: AnsiString;
@@ -514,7 +514,7 @@ begin
 end;
 
 
-function TDfmToFmxObject.IniAddProperties: TStringlist;
+function TParser.IniAddProperties: TStringlist;
 begin
   if FIniAddProperties = nil then
     FIniAddProperties := TStringlist.Create;
@@ -522,7 +522,7 @@ begin
 end;
 
 
-procedure TDfmToFmxObject.IniFileLoad(AIni: TIniFile);
+procedure TParser.IniFileLoad(AIni: TIniFile);
 var
   i: integer;
   NewClassName: String;
@@ -547,8 +547,8 @@ begin
    end;
 
   for i := 0 to Pred(OwnedObjs.Count) do
-    if OwnedObjs[i] is TDfmToFmxObject then
-      TDfmToFmxObject(OwnedObjs[i]).IniFileLoad(AIni);
+    if OwnedObjs[i] is TParser then
+      TParser(OwnedObjs[i]).IniFileLoad(AIni);
 
   if FOwnedItems <> nil then
     for i := 0 to Pred(fOwnedItems.Count) do
@@ -567,7 +567,7 @@ begin
 end;
 
 
-function TDfmToFmxObject.IniIncludeValues: TStringlist;
+function TParser.IniIncludeValues: TStringlist;
 begin
   if FIniIncludeValues = nil then
     FIniIncludeValues := TStringlist.Create;
@@ -575,7 +575,7 @@ begin
 end;
 
 
-function TDfmToFmxObject.IniObjectTranslations: TStringList;
+function TParser.IniObjectTranslations: TStringList;
 begin
   if FIniObjectTranslations = nil then
     FIniObjectTranslations := TStringlist.Create;
@@ -583,7 +583,7 @@ begin
 end;
 
 
-function TDfmToFmxObject.IniReplaceValues: TStringlist;
+function TParser.IniReplaceValues: TStringlist;
 begin
   if FIniReplaceValues = nil then
     FIniReplaceValues := TStringlist.Create;
@@ -591,7 +591,7 @@ begin
 end;
 
 
-function TDfmToFmxObject.IniSectionValues: TStringlist;
+function TParser.IniSectionValues: TStringlist;
 begin
   if FIniSectionValues = nil then
     FIniSectionValues := TStringlist.Create;
@@ -599,7 +599,7 @@ begin
 end;
 
 
-procedure TDfmToFmxObject.LoadInfileDefs(AIniFileName: String);
+procedure TParser.LoadInfileDefs(AIniFileName: String);
 var
   Ini: TIniFile;
 begin
@@ -608,7 +608,7 @@ begin
 end;
 
 
-function TDfmToFmxObject.OwnedObjs: TObjectList;
+function TParser.OwnedObjs: TObjectList;
 begin
   if FOwnedObjs = nil then
   begin
@@ -619,7 +619,7 @@ begin
 end;
 
 
-function TDfmToFmxObject.ProcessCodeBody(const ACodeBody: String): String;
+function TParser.ProcessCodeBody(const ACodeBody: String): String;
 var
   BdyStr: String;
   Idx: Integer;
@@ -639,7 +639,7 @@ begin
 end;
 
 
-function TDfmToFmxObject.ProcessUsesString(AOrigUsesArray: TArrayOfStrings): String;
+function TParser.ProcessUsesString(AOrigUsesArray: TArrayOfStrings): String;
 var
   i: integer;
 begin
@@ -653,7 +653,7 @@ begin
 end;
 
 
-function TDfmToFmxObject.PropertyArray(ARow: integer): TArrayOfStrings;
+function TParser.PropertyArray(ARow: integer): TArrayOfStrings;
 begin
   while ARow >= FPropertyArraySz do
   begin
@@ -666,7 +666,7 @@ begin
 end;
 
 
-procedure TDfmToFmxObject.ReadItems(Prop: TTwoDArrayOfString; APropertyIdx: integer; AStm: TStream);
+procedure TParser.ReadItems(Prop: TTwoDArrayOfString; APropertyIdx: integer; AStm: TStream);
 var
   Data: String;
   saTemp: Array of String;
@@ -681,13 +681,13 @@ begin
   end;
   SetLength(saTemp, Succ(Length(saTemp)));
   saTemp[Pred(Length(saTemp))] := Data;
-  
+
   for sTemp in saTemp do
     Prop[APropertyIdx, 1] := Prop[APropertyIdx, 1] + #13 + sTemp;
 end;
 
 
-procedure TDfmToFmxObject.ReadData(Prop: TTwoDArrayOfString; APropertyIdx: integer; AStm: TStream);
+procedure TParser.ReadData(Prop: TTwoDArrayOfString; APropertyIdx: integer; AStm: TStream);
 var
   Data: String;
 begin
@@ -701,7 +701,7 @@ begin
 end;
 
 
-procedure TDfmToFmxObject.ReadText(Prop: TTwoDArrayOfString; APropertyIdx: integer; AStm: TStream);
+procedure TParser.ReadText(Prop: TTwoDArrayOfString; APropertyIdx: integer; AStm: TStream);
 var
   Data: String;
 begin
@@ -715,7 +715,7 @@ begin
 end;
 
 
-procedure TDfmToFmxObject.ReadProperties(AData: String; AStm: TStream; var AIdx: Integer);
+procedure TParser.ReadProperties(AData: String; AStm: TStream; var AIdx: Integer);
 begin
   PropertyArray(AIdx);
   F2DPropertyArray[AIdx] := GetArrayFromString(AData, '=');
@@ -738,7 +738,7 @@ begin
 end;
 
 
-function TDfmToFmxObject.TransformProperty(ACurrentName, ACurrentValue: String; APad: String = ''): String;
+function TParser.TransformProperty(ACurrentName, ACurrentValue: String; APad: String = ''): String;
 var
   s: String;
 begin
@@ -772,7 +772,7 @@ begin
 end;
 
 
-procedure TDfmToFmxObject.UpdateUsesStringList(AUsesList: TStrings);
+procedure TParser.UpdateUsesStringList(AUsesList: TStrings);
 var
   i: integer;
   Idx: integer;
@@ -805,12 +805,12 @@ begin
     Exit;
 
   for i := 0 to Pred(FOwnedObjs.Count) do
-    if FOwnedObjs[i] is TDfmToFmxObject then
-      TDfmToFmxObject(FOwnedObjs[i]).UpdateUsesStringList(AUsesList);
+    if FOwnedObjs[i] is TParser then
+      TParser(FOwnedObjs[i]).UpdateUsesStringList(AUsesList);
 end;
 
 
-function TDfmToFmxObject.UsesTranslation: TStringlist;
+function TParser.UsesTranslation: TStringlist;
 begin
   if FUsesTranslation = nil then
     FUsesTranslation := TStringlist.Create;
@@ -818,7 +818,7 @@ begin
 end;
 
 
-function TDfmToFmxObject.WriteFMXToFile(const AFmxFileName: String): Boolean;
+function TParser.WriteFMXToFile(const AFmxFileName: String): Boolean;
 var
   OutFile: TFileStream;
   s: AnsiString;
@@ -840,7 +840,7 @@ begin
 end;
 
 
-function TDfmToFmxObject.WritePasToFile(const APasOutFileName, APascalSourceFileName: String): Boolean;
+function TParser.WritePasToFile(const APasOutFileName, APascalSourceFileName: String): Boolean;
 var
   OutFile: TFileStream;
   s: AnsiString;
@@ -866,7 +866,7 @@ end;
 
 
 { TDfmToFmxListItem }
-constructor TDfmToFmxListItem.Create(AOwner: TDfmToFmxObject; APropertyIdx: integer; AStm: TStream; ADepth: integer);
+constructor TDfmToFmxListItem.Create(AOwner: TParser; APropertyIdx: integer; AStm: TStream; ADepth: integer);
 var
   Data: String;
   i,LoopCount: integer;
@@ -881,7 +881,7 @@ begin
   Begin
     Dec(LoopCount);
     if Pos(AnsiString('object'), Data) = 1 then
-      OwnedObjs.Add(TDfmToFmxObject.Create(Data, AStm, FDepth + 1))
+      OwnedObjs.Add(TParser.Create(Data, AStm, FDepth + 1))
     else
       ReadProperties(Data,AStm,i);
     Data := Trim(ReadLineFrmStream(AStm));

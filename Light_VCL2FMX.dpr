@@ -4,7 +4,7 @@ uses
   FastMM4,
   System.StartUpCopy,
   FMX.Forms,
-  cbAppData,
+  cbAppDataFmx,
   Parser in 'Parser.pas',
   FormMain in 'FormMain.pas' {frmMain},
   Utils in 'Utils.pas',
