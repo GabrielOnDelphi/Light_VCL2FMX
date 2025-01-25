@@ -1,7 +1,7 @@
 # Light VCL2FMX
 VCL to FMX converter
 
-![](https://github.com/e-delphi/VCL2FMX/blob/99e72a04b5a39550787a103de818a6da8824c284/app.png)
+![](screenshot_main.png)
 ![](screenshot_config.png)
 
 

@@ -137,6 +137,8 @@ begin
   end;
 
   UpdateForm;
+
+  if AppData.RunningFirstTime then ShellExecuteDocument('https://gabrielmoraru.com/');
 end;
 
 

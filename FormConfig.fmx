@@ -1,7 +1,7 @@
 object frmConfig: TfrmConfig
   Left = 0
   Top = 0
-  Caption = 'Configurador INI'
+  Caption = 'Dictionary configurator'
   ClientHeight = 739
   ClientWidth = 456
   Position = ScreenCenter
