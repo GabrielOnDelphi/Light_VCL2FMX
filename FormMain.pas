@@ -139,7 +139,7 @@ begin
   UpdateForm;
 
   if AppData.RunningFirstTime
-  then ShellExecuteDocument('https://gabrielmoraru.com/');
+  then ExecuteURL('https://gabrielmoraru.com/');
 end;
 
 

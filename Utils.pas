@@ -39,7 +39,10 @@ function  FieldSep(var ss: PChar; SepVal: Char): String; overload;
 function  ReadLineFrmStream(AStream: TStream): String;
 function  PosNoCase(const ASubstr: String; AFullString: String): Integer; overload;
 procedure PopulateStringsFromArray(AStrings: TStrings; AArray: TArrayOfStrings; AObjArray: TArrayofObjects = nil);
-function  ShellExecuteDocument(const Command, Parameters, Directory: String; Visiblity: DWord = SW_RESTORE; Action: String = 'open'): Boolean;
+
+//function  ShellExecuteDocument(const Command, Parameters, Directory: String; Visiblity: DWord = SW_RESTORE; Action: String = 'open'): Boolean;
+function ExecuteShell(CONST ExeFile: string; Params: string= ''; ShowErrorMsg: Boolean= TRUE; WindowState: Integer= WinApi.Windows.SW_SHOWNORMAL): Boolean;
+procedure ExecuteURL(URL: string);
 
 const
   NullStrCodeInfo: StrCodeInfoRec = (CodePage: 0; ElementLength: 0; RefCount: 0; Length: 0);
@@ -251,39 +254,60 @@ begin
 end;
 
 
-function ShellExecuteDocumentRetError(const Command, Parameters, Directory: String; Visiblity: DWord; Action: String): DWord;
-var
-  lpParameters, lpDirectory, lpOperation: PChar;
-  LocalAction: String;
+
+
+
+function ExecuteShell(CONST ExeFile: string; Params: string= ''; ShowErrorMsg: Boolean= TRUE; WindowState: Integer= WinApi.Windows.SW_SHOWNORMAL): Boolean;
+VAR
+   i: integer;
+   WorkingFolder, Msg: string;
 begin
-  if Action = ''
-  then LocalAction := 'open'
-  else LocalAction := lowercase(Action);
+ WorkingFolder:= ExtractFilePath(ExeFile);
+ i:= ShellExecute(0, 'open', PChar(ExeFile), Pointer(Params), PChar(WorkingFolder), WindowState);   //  See this about using 'Pointer' instead of 'PChar': http://stackoverflow.com/questions/3048188/shellexecute-not-working-from-ide-but-works-otherwise
+ Result:= i > 32;
+ if NOT Result AND ShowErrorMsg then
+  begin
+   case i of
+      // What are these?
+      0  : Msg:= 'The operating system is out of memory or resources.';
+      12 : Msg:= 'Application was designed for a different operating system.';
+      13 : Msg:= 'Application was designed for MS-DOS 4.0';
+      15 : Msg:= 'Attempt to load a real-mode program.';
+      16 : Msg:= 'Attempt to load a second instance of an application with non-readonly data segments.';
+      19 : Msg:= 'Attempt to load a compressed application file.';
+      20 : Msg:= 'Dynamic-link library (DLL) file failure.';
 
-  lpOperation := PChar(LocalAction);
-  if Parameters = ''
-  then lpParameters := nil
-  else lpParameters := @Parameters[1];
+      // Regular WinExec codes
+      { 02} SE_ERR_FNF            : Msg:= 'Exe file not found!'+ ExeFile;
+      { 03} SE_ERR_PNF            : Msg:= 'Path not found!';
+      { 08} SE_ERR_OOM            : Msg:= 'Out of memory!';
 
-  if Directory = ''
-  then lpDirectory := nil
-  else lpDirectory := @Directory[1];
+      // Error values for ShellExecute beyond the regular WinExec() codes
+      { 26} SE_ERR_SHARE          : Msg:= 'A sharing violation occurred!';
+      { 27} SE_ERR_ASSOCINCOMPLETE: Msg:= 'The file name association is incomplete or invalid!';
+      { 28} SE_ERR_DDETIMEOUT     : Msg:= 'The DDE transaction could not be completed because the request timed out!';
+      { 29} SE_ERR_DDEFAIL        : Msg:= 'The DDE transaction failed!';
+      { 30} SE_ERR_DDEBUSY        : Msg:= 'The DDE transaction could not be completed because other DDE transactions were being processed!';
+      { 31} SE_ERR_NOASSOC        : Msg:= 'There is no application associated with the given file name extension!';
 
-  Result := ShellExecuteA(0,
-      PAnsiChar(lpOperation),
-      @Command[1],
-      PAnsiChar(lpParameters),
-      PAnsiChar(lpDirectory),
-      Visiblity);
+      { 05} SE_ERR_ACCESSDENIED   : Msg:= 'The operating system denied access! Do you have admin rights?';       // https://answers.microsoft.com/en-us/windows/forum/windows_7-windows_programs/getting-error-shellexecuteex-failed-code-5-access/3af7bea3-5733-426c-9e12-6ec68bf7b38b?auth=1
+      { 32} SE_ERR_DLLNOTFOUND    : Msg:= 'The specified DLL was not found!'
+     else
+        Msg:= 'ShellExecute error '+ IntToStr(i);
+   end;
+
+   //MesajError(Msg);
+  end;
 end;
 
 
-function ShellExecuteDocument(const Command, Parameters, Directory: String; Visiblity: DWord; Action: String): Boolean;
-var
-  Return: DWord;
+procedure ExecuteURL(URL: string);
 begin
-  Return := ShellExecuteDocumentRetError(Command, Parameters, Directory, Visiblity, Action);
-  Result := Return > 32;
+  {ToDo 1: encode all other special URL chars}
+  URL := StringReplace(URL, '"', '%22', [rfReplaceAll]);
+  ExecuteShell(URL, '', TRUE, SW_SHOWNORMAL);
 end;
+
+
 
 end.
