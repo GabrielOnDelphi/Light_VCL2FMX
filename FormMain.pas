@@ -5,8 +5,10 @@
    2025.01
 --------------------------------------------------------------------------------------------------------------
    Code branched from edelphi/vcltofmx
-   Major update!
-   True unicode support!
+     Major update!
+     True unicode support!
+     Fixed bugs
+     Smaller code
 
    This program requires https://github.com/GabrielOnDelphi/Delphi-LightSaber
 =============================================================================================================}
