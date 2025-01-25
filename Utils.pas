@@ -13,7 +13,9 @@ uses
   Winapi.Windows,
   Winapi.ShlObj,
   Winapi.ShellAPI,
-  System.SysUtils;
+  System.SysUtils,
+  FMX.Forms,
+  FMX.DialogService;
 
 type
   TArrayOfStrings = array of String;
@@ -33,34 +35,54 @@ type
     Length: Integer;
   end;
 
-function GetArrayFromString(const S: String; SepVal: Char; ARemoveQuote: Boolean = false; ATrim: Boolean = True; ADropNulls: Boolean = false): TArrayOfStrings; overload;
-function FieldSep(var ss: PChar; SepVal: Char): String; overload;
-function ReadLineFrmStream(AStream: TStream): String;
-function PosNoCase(const ASubstr: String; AFullString: String): Integer; overload;
+function  MyMessageDialog(const AMessage: string; const ADialogType: TMsgDlgType; const AButtons: TMsgDlgButtons; const ADefaultButton: TMsgDlgBtn): Integer;
+function  GetArrayFromString(const S: String; SepVal: Char; ARemoveQuote: Boolean = false; ATrim: Boolean = True; ADropNulls: Boolean = false): TArrayOfStrings; overload;
+function  FieldSep(var ss: PChar; SepVal: Char): String; overload;
+function  ReadLineFrmStream(AStream: TStream): String;
+function  PosNoCase(const ASubstr: String; AFullString: String): Integer; overload;
 procedure PopulateStringsFromArray(AStrings: TStrings; AArray: TArrayOfStrings; AObjArray: TArrayofObjects = nil);
-function CompressedUnicode(const AUCode: UnicodeString): String;
-function StrCodeInfo(const S: UnicodeString): StrCodeInfoRec; overload; inline;
-function StrCodeInfo(const S: RawByteString): StrCodeInfoRec; overload; inline;
-function ShellExecuteDocument(const Command, Parameters, Directory: String; Visiblity: DWord = SW_RESTORE; Action: String = 'open'): Boolean;
+function    StrCodeInfo(const S: UnicodeString): StrCodeInfoRec; overload; inline;
+function    StrCodeInfo(const S: RawByteString): StrCodeInfoRec; overload; inline;
+function  ShellExecuteDocument(const Command, Parameters, Directory: String; Visiblity: DWord = SW_RESTORE; Action: String = 'open'): Boolean;
 
 const
-  NullStrCodeInfo: StrCodeInfoRec = (CodePage: 0; ElementLength: 0; RefCount: 0;
-    Length: 0);
+  NullStrCodeInfo: StrCodeInfoRec = (CodePage: 0; ElementLength: 0; RefCount: 0; Length: 0);
 
 type
   PStrCodeInfoRec = ^StrCodeInfoRec;
 
-const
-  CRLF           = AnsiChar(#13) + AnsiChar(#10);
+CONST
   ZSISOffset     = 0;
-  CR             = AnsiChar(#13);
-  LF             = AnsiChar(#10);
-  TAB            = AnsiChar(#9);
   CRP            = AnsiChar(#141); // (13 + 128);
   LFP            = AnsiChar(#138); // (10 + 128);
-  FirstStrCharNo = 1;
+//  FirstStrCharNo = 1;
 
 IMPLEMENTATION
+USES ccCore;
+
+
+
+function MyMessageDialog(const AMessage: string; const ADialogType: TMsgDlgType; const AButtons: TMsgDlgButtons; const ADefaultButton: TMsgDlgBtn): Integer;
+var mr: TModalResult;
+begin
+  mr := mrNone;
+
+  TDialogService.MessageDialog(
+      AMessage,
+      ADialogType,
+      AButtons,
+      ADefaultButton,
+      0,
+      procedure (const AResult: TModalResult)
+      begin
+        mr := AResult
+      end);
+
+  while mr = mrNone do // wait for modal result
+    Application.ProcessMessages;
+
+  Result := mr;
+end;
 
 
 function GetArrayFromString(const S: String; SepVal: Char; ARemoveQuote: Boolean = false; ATrim: Boolean = True; ADropNulls: Boolean = false): TArrayOfStrings;
@@ -232,6 +254,7 @@ begin
       AStrings.AddObject(AArray[i], AObjArray[i]);
 end;
 
+{
 function CompressedUnicode(const AUCode: UnicodeString): String;
 var
   Ri, Ui: Integer;
@@ -259,17 +282,15 @@ begin
     if Ri < R.Length then
       Result := '';
   end;
-end;
+end;   }
 
 function StrCodeInfo(const S: UnicodeString): StrCodeInfoRec; overload; inline;
-var
-  AtS: NativeInt;
+var AtS: NativeInt;
 begin
   AtS := NativeInt(S);
-  if AtS = 0 then
-    Result := NullStrCodeInfo
-  else
-    Result := PStrCodeInfoRec(AtS - 12)^
+  if AtS = 0
+  then Result := NullStrCodeInfo
+  else Result := PStrCodeInfoRec(AtS - 12)^
 end;
 
 function StrCodeInfo(const S: RawByteString): StrCodeInfoRec; overload; inline;

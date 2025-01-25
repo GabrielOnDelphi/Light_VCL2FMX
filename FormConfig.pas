@@ -34,9 +34,10 @@ type
     edtFMX: TEdit;
     lbEqual: TLabel;
     btnRemover: TButton;
-    btnSalvar: TButton;
-    btnAbrir: TButton;
+    Panel1: TPanel;
     edtINI: TEdit;
+    btnAbrir: TButton;
+    btnSalvar: TButton;
     procedure FormCreate(Sender: TObject);
     procedure btnAdicionarClick(Sender: TObject);
     procedure btnRemoverClick(Sender: TObject);
@@ -84,20 +85,18 @@ procedure TfrmConfig.btnAdicionarClick(Sender: TObject);
 var
   tvSec: TTreeViewItem;
 begin
-  if not Assigned(tvINI.Selected) then
-    Exit;
+  if not Assigned(tvINI.Selected) then Exit;
+
   tvSec := TTreeViewItem.Create(tvINI);
   tvSec.Text := edtVCL.Text +'='+ edtFMX.Text;
-  if tvINI.Selected.Level = 1 then
-    tvINI.Selected.AddObject(tvSec)
-  else
-    tvINI.Selected.ParentItem.AddObject(tvSec);
+  if tvINI.Selected.Level = 1
+  then tvINI.Selected.AddObject(tvSec)
+  else tvINI.Selected.ParentItem.AddObject(tvSec);
 end;
 
 procedure TfrmConfig.btnRemoverClick(Sender: TObject);
 begin
-  if not Assigned(tvINI.Selected) then
-    Exit;
+  if not Assigned(tvINI.Selected) then Exit;
 
   if tvINI.Selected.Level = 1 then
     tvINI.RemoveObject(tvINI.Selected)
@@ -121,7 +120,7 @@ begin
   try
     sIniFile := RegFile.ReadString('Files', 'Inifile', EmptyStr);
     DeleteFile(ChangeFileExt(sIniFile, '.bkp'));
-    RenameFile(sIniFile, ChangeFileExt(sIniFile, '.bkp'));
+    System.SysUtils.RenameFile(sIniFile, ChangeFileExt(sIniFile, '.bkp'));
     Ini := TIniFile.Create(sIniFile);
     try
       IniObjectTranslations := TStringList.Create;

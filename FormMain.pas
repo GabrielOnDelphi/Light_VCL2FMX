@@ -1,5 +1,16 @@
 ﻿unit FormMain;
 
+{=============================================================================================================
+   Gabriel Moraru
+   2025.01
+--------------------------------------------------------------------------------------------------------------
+   Code branched from edelphi/vcltofmx
+   Major update!
+   True unicode support!
+
+   This program requires https://github.com/GabrielOnDelphi/Delphi-LightSaber
+=============================================================================================================}
+
 interface
 
 uses
@@ -15,11 +26,13 @@ uses
   FMX.Dialogs,
   FMX.Layouts,
   FMX.Memo,
-  Parser,
   FMX.StdCtrls,
   FMX.ScrollBox,
   FMX.Controls.Presentation,
-  FMX.Objects, FMX.Memo.Types, FMX.Menus;
+  FMX.Objects,
+  FMX.Memo.Types,
+  FMX.Menus,
+  Parser;
 
 type
   TfrmMain = class(TForm)
@@ -50,7 +63,6 @@ type
     Procedure RegIniLoad;
     Procedure RegIniSave;
     Procedure UpdateForm;
-    function MyMessageDialog(const AMessage: string; const ADialogType: TMsgDlgType; const AButtons: TMsgDlgButtons; const ADefaultButton: TMsgDlgBtn): Integer;
     procedure LoadFile(aFile: string);
   end;
 
@@ -117,7 +129,7 @@ begin
     InputDFM := ChangeFileExt(InputPAS, '.dfm');
 
     if FileExists(InputDFM) then
-      if TParser.DFMIsTextBased(InputDFM)
+      if TParser.IsTextDFM(InputDFM)
       then LoadFile(InputDFM)
       else ShowMessage('Incompatible DFM file:' + InputDFM);
   end;
@@ -159,29 +171,6 @@ begin
 end;
 
 
-function TfrmMain.MyMessageDialog(const AMessage: string; const ADialogType: TMsgDlgType; const AButtons: TMsgDlgButtons; const ADefaultButton: TMsgDlgBtn): Integer;
-var mr: TModalResult;
-begin
-  mr := mrNone;
-
-  TDialogService.MessageDialog(
-      AMessage,
-      ADialogType,
-      AButtons,
-      ADefaultButton,
-      0,
-      procedure (const AResult: TModalResult)
-      begin
-        mr := AResult
-      end);
-
-  while mr = mrNone do // wait for modal result
-    Application.ProcessMessages;
-
-  Result := mr;
-end;
-
-
 procedure TfrmMain.BtnSaveFMXClick(Sender: TObject);
 begin
   if DFMObj = nil
@@ -202,7 +191,7 @@ begin
        OutputFMX := ChangeFileExt(OutputPas, '.fmx');
 
        if FileExists(OutputFMX) or FileExists(OutputPas) then
-         if myMessageDialog('Replace Existing Files: '+ OutputFMX +' e/ou '+ OutputPas,
+         if myMessageDialog('Replace Existing Files: '+ OutputFMX +' - '+ OutputPas,
            TMsgDlgType.mtWarning,
            [TMsgDlgBtn.mbOK, TMsgDlgBtn.mbCancel],
            TMsgDlgBtn.mbOK) = mrOk then
@@ -212,12 +201,12 @@ begin
          end;
 
        if FileExists(OutputFMX) then
-         raise Exception.Create(OutputFMX + 'Já existe');
+         raise Exception.Create(OutputFMX + 'File already exists! '+ OutputFMX);
 
        DFMObj.WriteFMXToFile(OutputFMX);
 
        if FileExists(OutputPas) then
-         raise Exception.Create(OutputPas + 'Já existe');
+         raise Exception.Create(OutputPas + 'File already exists! '+ OutputPas);
 
        DFMObj.WritePasToFile(OutputPas, InputPAS);
      end;
@@ -232,21 +221,9 @@ end;
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 function TfrmMain.GetRegFile: TRegistryIniFile;
 begin
-  Result:= TRegistryIniFile.Create('DFMtoFMXConvertor');
+  Result:= TRegistryIniFile.Create('Vcl2Dfm');
 end;
 
 
@@ -270,7 +247,7 @@ begin
     end;
 
     if FileExists(InputDFM)
-    AND TParser.DFMIsTextBased(InputDFM)
+    AND TParser.IsTextDFM(InputDFM)
     then mmoInputDfm.Lines.LoadFromFile(InputDFM);
   finally
     RegFile.Free;

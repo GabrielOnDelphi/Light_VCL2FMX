@@ -2,7 +2,7 @@ object frmConfig: TfrmConfig
   Left = 0
   Top = 0
   Caption = 'Configurador INI'
-  ClientHeight = 480
+  ClientHeight = 739
   ClientWidth = 456
   Position = ScreenCenter
   FormFactor.Width = 320
@@ -14,34 +14,88 @@ object frmConfig: TfrmConfig
   object tvINI: TTreeView
     Align = Client
     Size.Width = 456.000000000000000000
-    Size.Height = 406.000000000000000000
+    Size.Height = 698.000000000000000000
     Size.PlatformDefault = False
     TabOrder = 0
     OnClick = tvINIClick
     Viewport.Width = 452.000000000000000000
-    Viewport.Height = 402.000000000000000000
+    Viewport.Height = 694.000000000000000000
+    object Panel1: TPanel
+      Align = Bottom
+      Position.Y = 660.000000000000000000
+      Size.Width = 452.000000000000000000
+      Size.Height = 34.000000000000000000
+      Size.PlatformDefault = False
+      TabOrder = 0
+      object edtINI: TEdit
+        Touch.InteractiveGestures = [LongTap, DoubleTap]
+        Align = Client
+        TabOrder = 6
+        Hint = 'Dictionary file'
+        Margins.Left = 3.000000000000000000
+        Margins.Top = 4.000000000000000000
+        Margins.Right = 3.000000000000000000
+        Margins.Bottom = 4.000000000000000000
+        Size.Width = 290.000000000000000000
+        Size.Height = 26.000000000000000000
+        Size.PlatformDefault = False
+        TextPrompt = 'Arquivo'
+      end
+      object btnAbrir: TButton
+        Align = Right
+        Margins.Left = 3.000000000000000000
+        Margins.Top = 4.000000000000000000
+        Margins.Right = 3.000000000000000000
+        Margins.Bottom = 4.000000000000000000
+        Position.X = 377.000000000000000000
+        Position.Y = 4.000000000000000000
+        Size.Width = 72.000000000000000000
+        Size.Height = 26.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 5
+        Text = 'Open'
+        OnClick = btnAbrirClick
+      end
+      object btnSalvar: TButton
+        Align = Right
+        Margins.Left = 3.000000000000000000
+        Margins.Top = 4.000000000000000000
+        Margins.Right = 3.000000000000000000
+        Margins.Bottom = 4.000000000000000000
+        Position.X = 299.000000000000000000
+        Position.Y = 4.000000000000000000
+        Size.Width = 72.000000000000000000
+        Size.Height = 26.000000000000000000
+        Size.PlatformDefault = False
+        TabOrder = 4
+        Text = 'Save'
+        OnClick = btnSalvarClick
+      end
+    end
   end
   object pnlTop: TPanel
     Align = Top
     Size.Width = 456.000000000000000000
-    Size.Height = 74.000000000000000000
+    Size.Height = 41.000000000000000000
     Size.PlatformDefault = False
     TabOrder = 1
     object btnAdicionar: TButton
       Position.X = 296.000000000000000000
-      Position.Y = 42.000000000000000000
+      Position.Y = 8.000000000000000000
       Size.Width = 73.000000000000000000
       Size.Height = 22.000000000000000000
       Size.PlatformDefault = False
       TabOrder = 1
-      Text = 'Adicionar'
+      Text = 'Add'
       OnClick = btnAdicionarClick
     end
     object edtVCL: TEdit
       Touch.InteractiveGestures = [LongTap, DoubleTap]
       TabOrder = 3
+      Text = 'VCL'
       Position.X = 8.000000000000000000
-      Position.Y = 42.000000000000000000
+      Position.Y = 8.000000000000000000
+      Hint = 'VCL'
       Size.Width = 129.000000000000000000
       Size.Height = 22.000000000000000000
       Size.PlatformDefault = False
@@ -51,7 +105,8 @@ object frmConfig: TfrmConfig
       Touch.InteractiveGestures = [LongTap, DoubleTap]
       TabOrder = 2
       Position.X = 160.000000000000000000
-      Position.Y = 42.000000000000000000
+      Position.Y = 8.000000000000000000
+      Hint = 'FMX'
       Size.Width = 129.000000000000000000
       Size.Height = 22.000000000000000000
       Size.PlatformDefault = False
@@ -59,7 +114,7 @@ object frmConfig: TfrmConfig
     end
     object lbEqual: TLabel
       Position.X = 144.000000000000000000
-      Position.Y = 42.000000000000000000
+      Position.Y = 8.000000000000000000
       Size.Width = 17.000000000000000000
       Size.Height = 17.000000000000000000
       Size.PlatformDefault = False
@@ -68,43 +123,13 @@ object frmConfig: TfrmConfig
     end
     object btnRemover: TButton
       Position.X = 376.000000000000000000
-      Position.Y = 42.000000000000000000
+      Position.Y = 8.000000000000000000
       Size.Width = 73.000000000000000000
       Size.Height = 22.000000000000000000
       Size.PlatformDefault = False
       TabOrder = 0
-      Text = 'Remover'
+      Text = 'Remove'
       OnClick = btnRemoverClick
-    end
-    object btnSalvar: TButton
-      Position.X = 376.000000000000000000
-      Position.Y = 10.000000000000000000
-      Size.Width = 72.000000000000000000
-      Size.Height = 22.000000000000000000
-      Size.PlatformDefault = False
-      TabOrder = 5
-      Text = 'Salvar'
-      OnClick = btnSalvarClick
-    end
-    object btnAbrir: TButton
-      Position.X = 296.000000000000000000
-      Position.Y = 10.000000000000000000
-      Size.Width = 72.000000000000000000
-      Size.Height = 22.000000000000000000
-      Size.PlatformDefault = False
-      TabOrder = 6
-      Text = 'Abrir'
-      OnClick = btnAbrirClick
-    end
-    object edtINI: TEdit
-      Touch.InteractiveGestures = [LongTap, DoubleTap]
-      TabOrder = 7
-      Position.X = 8.000000000000000000
-      Position.Y = 10.000000000000000000
-      Size.Width = 281.000000000000000000
-      Size.Height = 22.000000000000000000
-      Size.PlatformDefault = False
-      TextPrompt = 'Arquivo'
     end
   end
 end
