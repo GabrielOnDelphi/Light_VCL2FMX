@@ -30,13 +30,11 @@ uses
   FMX.Dialogs,
   FMX.Layouts,
   FMX.Memo,
+  Parser,
   FMX.StdCtrls,
   FMX.ScrollBox,
   FMX.Controls.Presentation,
-  FMX.Objects,
-  FMX.Memo.Types,
-  FMX.Menus,
-  Parser;
+  FMX.Objects, FMX.Memo.Types, FMX.Menus;
 
 type
   TfrmMain = class(TForm)

@@ -161,7 +161,7 @@ var
   tvObj: TTreeViewItem;
   tvSec: TTreeViewItem;
 begin
-  RegFile := TRegistryIniFile.Create('DFMtoFMXConvertor');;
+  RegFile := TRegistryIniFile.Create('DFMtoFMXConvertor');  //don't put it to   RegKey !
   try
     sIniFile := RegFile.ReadString('Files', 'Inifile', EmptyStr)
   finally

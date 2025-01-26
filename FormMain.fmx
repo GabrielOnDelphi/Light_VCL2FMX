@@ -2,7 +2,7 @@ object frmMain: TfrmMain
   Left = 0
   Top = 0
   Caption = 'VCL 2 FMX'
-  ClientHeight = 709
+  ClientHeight = 500
   ClientWidth = 915
   Position = ScreenCenter
   FormFactor.Width = 320

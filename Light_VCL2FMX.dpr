@@ -14,15 +14,15 @@ uses
 
 {$R *.res}
 
-begin  {
+begin
+ {
   Application.Initialize;
   ReportMemoryLeaksOnShutdown := False;
   Application.CreateForm(TfrmMain, frmMain);
   Application.Run;
 }
-  AppData:= TAppData.Create('MyCollApp');
-  AppData.CreateMainForm(TfrmMain, frmMain, False, True);   // Main form
-  //TfrmRamLog.CreateGlobalLog;                                 // Log (optional)
+  AppData:= TAppData.Create('Vcl2Fmx');
+  AppData.CreateMainForm(TfrmMain, frmMain, False, True);       // Main form
   Application.Run;
 end.
 
