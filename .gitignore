@@ -47,3 +47,4 @@ __recovery/
 *.vlb
 *.deployproj
 *.cbk
+/Sources

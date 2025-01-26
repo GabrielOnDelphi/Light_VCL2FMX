@@ -5,10 +5,12 @@
    2025.01
 --------------------------------------------------------------------------------------------------------------
    Code branched from edelphi/vcltofmx
-     Major update!
+   This is the major update! It has:
      True unicode support!
      Fixed bugs
+     Better file handling
      Smaller code
+     English instead of spanish
 
    This program requires https://github.com/GabrielOnDelphi/Delphi-LightSaber
 =============================================================================================================}
@@ -68,8 +70,10 @@ type
     procedure LoadFile(aFile: string);
   end;
 
-var
+VAR
   frmMain: TfrmMain;
+
+CONST RegKey= 'Vcl2Dfm';
 
 IMPLEMENTATION
 {$R *.fmx}
@@ -223,12 +227,9 @@ end;
 
 
 
-
-
-
 function TfrmMain.GetRegFile: TRegistryIniFile;
 begin
-  Result:= TRegistryIniFile.Create('Vcl2Dfm');
+  Result:= TRegistryIniFile.Create(RegKey);
 end;
 
 

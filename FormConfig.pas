@@ -52,7 +52,8 @@ implementation
 uses
   System.Win.Registry,
   System.IniFiles,
-  System.StrUtils;
+  System.StrUtils,
+  FormMain;
 
 {$R *.fmx}
 
@@ -66,10 +67,10 @@ begin
     Dlg.FileName := ExtractFileName(edtINI.Text);
     Dlg.InitialDir := ExtractFilePath(edtINI.Text);
     Dlg.DefaultExt := '.ini';
-    Dlg.Filter := 'Arquivos INI|*.ini|All Files|*.*';
+    Dlg.Filter := 'INI Files|*.ini|All Files|*.*';
     if Dlg.Execute then
     begin
-      RegFile := TRegistryIniFile.Create('DFMtoFMXConvertor');
+      RegFile := TRegistryIniFile.Create(RegKey);
       try
         RegFile.WriteString('Files', 'inifile', Dlg.FileName);
       finally
@@ -109,21 +110,19 @@ var
   RegFile: TRegistryIniFile;
   Ini: TIniFile;
   sIniFile: String;
-  IniObjectTranslations: TStringList;
   sKey: String;
   sValue: String;
   I: Integer;
   J: Integer;
 begin
   tvINI.Sorted := True;
-  RegFile := TRegistryIniFile.Create('DFMtoFMXConvertor');;
+  RegFile := TRegistryIniFile.Create(RegKey);
   try
     sIniFile := RegFile.ReadString('Files', 'Inifile', EmptyStr);
     DeleteFile(ChangeFileExt(sIniFile, '.bkp'));
     System.SysUtils.RenameFile(sIniFile, ChangeFileExt(sIniFile, '.bkp'));
     Ini := TIniFile.Create(sIniFile);
-    try
-      IniObjectTranslations := TStringList.Create;
+
       try
         for I := 0 to Pred(tvINI.Count) do
         begin
@@ -136,9 +135,7 @@ begin
             Ini.WriteString(tvINI.Items[I].Text, sKey, sValue);
           end;
         end;
-      finally
-        IniObjectTranslations.Free;
-      end;
+
     finally
       Ini.Free;
     end;
