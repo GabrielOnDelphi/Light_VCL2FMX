@@ -49,3 +49,4 @@ __recovery/
 *.cbk
 /Sources
 Light_VCL2FMX.exe.before_signature.exe
+/del
