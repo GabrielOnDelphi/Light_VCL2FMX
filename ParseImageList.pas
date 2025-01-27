@@ -88,7 +88,7 @@ begin
               FreeAndNil(bmp);
             end;
           finally
-            stream.Free;
+            FreeAndNil(stream);
           end;
         end;
 
@@ -146,13 +146,13 @@ begin
         end;
 
       finally
-        img1.Free;
+        FreeAndNil(img1);
       end;
     finally
-      Lgraphic.Free;
+      FreeAndNil(Lgraphic);
     end;
   finally
-    Loutput.Free;
+    FreeAndNil(Loutput);
   end;
 end;
 

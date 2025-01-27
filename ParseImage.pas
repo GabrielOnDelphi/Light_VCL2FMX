@@ -85,17 +85,17 @@ begin
         stream.Position := 0;
         img1.Bitmap.LoadFromStream(stream);
       finally
-        stream.Free;
+        FreeAndNil(stream);
       end;
 
       // Retorna imagem convertida de FMX para texto
       Result := ImageToHex(img1, 64);
     finally
-      img1.Free;
-      Lgraphic.Free;
+      FreeAndNil(img1);
+      FreeAndNil(Lgraphic);
     end;
   finally
-    Loutput.Free;
+    FreeAndNil(Loutput);
   end;
 end;
 
@@ -116,7 +116,7 @@ begin
       Delete(t, 1, LineLen);
     until t = '';
   finally
-    ms.Free;
+    FreeAndNil(ms);
   end;
 end;
 

@@ -24,11 +24,11 @@ object frmMain: TfrmMain
     Position.X = 465.000000000000000000
     Position.Y = 47.000000000000000000
     Size.Width = 536.000000000000000000
-    Size.Height = 660.000000000000000000
+    Size.Height = 451.000000000000000000
     Size.PlatformDefault = False
     TabOrder = 1
     Viewport.Width = 532.000000000000000000
-    Viewport.Height = 656.000000000000000000
+    Viewport.Height = 447.000000000000000000
   end
   object mmoInputDfm: TMemo
     Touch.InteractiveGestures = [Pan, LongTap, DoubleTap]
@@ -42,11 +42,11 @@ object frmMain: TfrmMain
     Margins.Bottom = 2.000000000000000000
     Position.Y = 47.000000000000000000
     Size.Width = 457.000000000000000000
-    Size.Height = 660.000000000000000000
+    Size.Height = 451.000000000000000000
     Size.PlatformDefault = False
     TabOrder = 0
     Viewport.Width = 453.000000000000000000
-    Viewport.Height = 656.000000000000000000
+    Viewport.Height = 447.000000000000000000
     object Layout1: TLayout
       Position.X = 592.000000000000000000
       Position.Y = 88.000000000000000000

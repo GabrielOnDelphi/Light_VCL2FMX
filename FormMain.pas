@@ -1,4 +1,4 @@
-﻿unit FormMain;
+unit FormMain;
 
 {=============================================================================================================
    Gabriel Moraru
@@ -161,20 +161,21 @@ begin
     Stm.Seek(0,soFromBeginning);
     try
       DfmContent := Trim(ReadLineFrmStream(Stm));
-      if Pos('object', DfmContent) = 1
-      then DFMObj := TParser.Create(DfmContent, Stm, 0);
+      if Pos('object', DfmContent) = 1 then
+       begin
+         DFMObj := TParser.Create(DfmContent, Stm, 0);
+         DFMObj.LiveBindings;
+         DFMObj.LoadInfileDefs(ConfigDict);
+
+         mmOutput.Text := '';
+         mmOutput.Text := DFMObj.FMXFile;
+         BtnProcess.Enabled := False;
+         UpdateForm;
+       end;
     finally
-      Stm.Free;
+      FreeAndNil(Stm);
     end;
   end;
-
-  DFMObj.LiveBindings;
-  DFMObj.LoadInfileDefs(ConfigDict);
-
-  mmOutput.Text := '';
-  mmOutput.Text := DFMObj.FMXFile;
-  BtnProcess.Enabled := False;
-  UpdateForm;
 end;
 
 
@@ -254,7 +255,7 @@ begin
     AND TParser.IsTextDFM(InputDFM)
     then mmoInputDfm.Lines.LoadFromFile(InputDFM);
   finally
-    RegFile.Free;
+    FreeAndNil(RegFile);
   end;
 
   if NOT FileExists(ConfigDict)
@@ -272,7 +273,7 @@ begin
     RegFile.WriteString('Files', 'InputDFm'  , InputDFM);
     RegFile.WriteString('Files', 'OutputPas' , OutputPas);
   finally
-    RegFile.Free;
+    FreeAndNil(RegFile);
   end;
 end;
 

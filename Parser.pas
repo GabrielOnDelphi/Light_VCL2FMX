@@ -341,13 +341,13 @@ end;
 
 destructor TParser.Destroy;
 begin
-  FOwnedObjs.Free;
-  FOwnedItems.Free;
-  FIniReplaceValues.Free;
-  FIniIncludeValues.Free;
-  FIniSectionValues.Free;
-  FUsesTranslation.Free;
-  FIniAddProperties.Free;
+  FreeAndNil(FOwnedObjs);
+  FreeAndNil(FOwnedItems);
+  FreeAndNil(FIniReplaceValues);
+  FreeAndNil(FIniIncludeValues);
+  FreeAndNil(FIniSectionValues);
+  FreeAndNil(FUsesTranslation);
+  FreeAndNil(FIniAddProperties);
   inherited Destroy;
 end;
 
@@ -805,7 +805,7 @@ begin
     OutFile.Write(s[1], Length(s));
     Result := True;
   finally
-    OutFile.Free;
+    FreeAndNil(OutFile);
   end;
 end;
 
@@ -830,7 +830,7 @@ begin
     OutFile.Write(s[1], Length(s));
     Result := True;
   finally
-    OutFile.Free;
+    FreeAndNil(OutFile);
   end;
 end;
 

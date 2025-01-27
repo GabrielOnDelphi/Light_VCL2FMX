@@ -74,11 +74,11 @@ begin
       try
         RegFile.WriteString('Files', 'inifile', Dlg.FileName);
       finally
-        RegFile.Free;
+        FreeAndNil(RegFile);
       end;
     end;
   finally
-    Dlg.Free;
+    FreeAndNil(Dlg);
   end;
 end;
 
@@ -137,10 +137,10 @@ begin
         end;
 
     finally
-      Ini.Free;
+      FreeAndNil(Ini);
     end;
   finally
-    RegFile.Free;
+    FreeAndNil(RegFile);
   end;
 end;
 
@@ -165,7 +165,7 @@ begin
   try
     sIniFile := RegFile.ReadString('Files', 'Inifile', EmptyStr)
   finally
-    RegFile.Free;
+    FreeAndNil(RegFile);
   end;
   edtINI.Text := sIniFile;
   Ini := TIniFile.Create(sIniFile);
@@ -192,10 +192,10 @@ begin
         tvINI.AddObject(tvObj);
       end;
     finally
-      IniObjectTranslations.Free;
+      FreeAndNil(IniObjectTranslations);
     end;
   finally
-    Ini.Free;
+    FreeAndNil(Ini);
   end;
 end;
 
