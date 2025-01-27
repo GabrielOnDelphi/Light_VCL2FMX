@@ -18,4 +18,8 @@ Improvements:
  - TImage conversion
  - TImageList conversion
  - Added TAlign replace
+ - Got rid of TStream
+ - Got read of PChar and other pointers.
+ - Got read of uninitialized objects
+ - Eliminated some memory leaks. 
  
