@@ -1,4 +1,4 @@
-unit FormMain;
+UNIT FormMain;
 
 {=============================================================================================================
    Gabriel Moraru
@@ -78,6 +78,8 @@ IMPLEMENTATION
 
 USES
   Utils,
+  ccTextFile,
+  ccCore,
   cbAppDataFmx,
   FormConfig,
   FMX.DialogService;
@@ -148,35 +150,41 @@ end;
 procedure TfrmMain.BtnProcessClick(Sender: TObject);
 var
   DfmContent: String;
-  Stm: TStringStream;
+  StringList: TStringList;
+  LineIndex: Integer;
 begin
   if mmoInputDfm.Text <> '' then
   begin
     FreeAndNil(DFMObj);
-
-    DfmContent:= mmoInputDfm.Text;
-
-    Stm := TStringStream.Create;
-    Stm.LoadFromFile(InputDFM);
-    Stm.Seek(0,soFromBeginning);
+    DfmContent := mmoInputDfm.Text;
+    StringList := StringFromFileTSL(InputDFM);
     try
-      DfmContent := Trim(ReadLineFrmStream(Stm));
-      if Pos('object', DfmContent) = 1 then
-       begin
-         DFMObj := TParser.Create(DfmContent, Stm, 0);
-         DFMObj.LiveBindings;
-         DFMObj.LoadInfileDefs(ConfigDict);
-
-         mmOutput.Text := '';
-         mmOutput.Text := DFMObj.FMXFile;
-         BtnProcess.Enabled := False;
-         UpdateForm;
-       end;
+      // Read the first line to check if it contains 'object'
+      LineIndex := 0;
+      if StringList.Count > 0 then
+      begin
+        DfmContent := Trim(StringList[LineIndex]);
+        if Pos('object', DfmContent) = 1 then
+          DFMObj := TParser.Create(DfmContent, StringList, 0, LineIndex);
+      end;
     finally
-      FreeAndNil(Stm);
+      StringList.Free;
     end;
   end;
+  if Assigned(DFMObj) then
+  begin
+    DFMObj.LiveBindings;
+    DFMObj.LoadInfileDefs(ConfigDict);
+    mmOutput.Text := '';
+    mmOutput.Text := DFMObj.FMXFile;
+    BtnProcess.Enabled := False;
+    UpdateForm;
+  end;
 end;
+
+
+
+
 
 
 procedure TfrmMain.BtnSaveFMXClick(Sender: TObject);

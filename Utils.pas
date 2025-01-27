@@ -35,7 +35,7 @@ TYPE
 
 function  MyMessageDialog(const AMessage: string; const ADialogType: TMsgDlgType; const AButtons: TMsgDlgButtons; const ADefaultButton: TMsgDlgBtn): Integer;
 function  GetArrayFromString(const S: String; SepVal: Char; ARemoveQuote: Boolean = false; ATrim: Boolean = True; ADropNulls: Boolean = false): TArrayOfStrings; overload;
-function  FieldSep(var ss: PChar; SepVal: Char): String; overload;
+function  FieldSep(var ss: string; SepVal: Char): String; overload;
 function  ReadLineFrmStream(AStream: TStream): String;
 function  PosNoCase(const ASubstr: String; AFullString: String): Integer; overload;
 procedure PopulateStringsFromArray(AStrings: TStrings; AArray: TArrayOfStrings; AObjArray: TArrayofObjects = nil);
@@ -74,7 +74,7 @@ begin
       0,
       procedure (const AResult: TModalResult)
       begin
-        mr := AResult
+      mr := AResult;
       end);
 
   while mr = mrNone do // wait for modal result
@@ -86,104 +86,100 @@ end;
 
 function GetArrayFromString(const S: String; SepVal: Char; ARemoveQuote: Boolean = false; ATrim: Boolean = True; ADropNulls: Boolean = false): TArrayOfStrings;
 var
-  i: Integer;
-  NextChar, SecondQuoteChar: PChar;
-  CSepVal: Char;
-  QuoteVal: String;
+  i, StartPos: Integer;
+  QuoteVal: Char;
+  InQuotes: Boolean;
   ThisS, fs: String;
 begin
   SetLength(Result, 0);
   if S = '' then
-    exit;
+    Exit;
+
   ThisS := S;
-  NextChar := @ThisS[1];
-  CSepVal := SepVal;
-  i := 0;
-  while Pointer(NextChar) <> nil do
-  begin
-    if NextChar[0] = CSepVal then
-    begin
-      inc(NextChar);
-      fs := '';
-    end
-    else
-    if ARemoveQuote and CharInSet(NextChar[0], ['''', '"', '[', '{', '(', '<']) then
-    begin
-      case Char(NextChar[0]) of
-        '''', '"':
-          QuoteVal := NextChar[0];
-        '[':
-          QuoteVal := ']';
-        '{':
-          QuoteVal := '}';
-        '(':
-          QuoteVal := ')';
-        '<':
-          QuoteVal := '>';
-      else
-        QuoteVal := NextChar[0];
-      end;
+  i := 1;
+  StartPos := 1;
+  InQuotes := False;
+  QuoteVal := #0;
 
-      SecondQuoteChar := StrPos(PChar(NextChar + 1), PChar(QuoteVal));
-      if (Pointer(SecondQuoteChar) <> nil) and ((SecondQuoteChar[1] = CSepVal) or (SecondQuoteChar[1] = #0)) then
+  while i <= Length(ThisS) do
+  begin
+    if InQuotes then
+    begin
+      if ThisS[i] = QuoteVal then
       begin
-        inc(NextChar);
-        if NextChar = SecondQuoteChar then
-        begin
-          fs := '';
-          inc(NextChar);
-        end
-        else
-          fs := FieldSep(NextChar, QuoteVal[1 + ZSISOffset]);
-        if SecondQuoteChar[1] = #0 then
-          NextChar := nil
-        else
-          inc(NextChar);
-      end
-      else
-        fs := FieldSep(NextChar, CSepVal);
+        InQuotes := False;
+        QuoteVal := #0;
+      end;
     end
     else
-      fs := FieldSep(NextChar, CSepVal);
-    if i > high(Result) then
-      SetLength(Result, i + 6);
-    if ATrim then
-      Result[i] := Trim(fs)
-    else
-      Result[i] := fs;
-    if not (ADropNulls and (Result[i] = '')) then
-      Inc(i);
-  end;
-  SetLength(Result, i);
-end;
-
-function FieldSep(var ss: PChar; SepVal: Char): String;
-var
-  CharPointer: PChar;
-  j: Integer;
-begin
-  if ss <> nil then
-  begin
-    if (SepVal <> AnsiChar(0)) then
-      while ss[0] = SepVal do
-        ss := ss + 1;
-    CharPointer := StrScan(ss, SepVal);
-    if CharPointer = nil then
-      Result := StrPas(ss) { Last Field }
-    else
     begin
-      j := CharPointer - ss;
-      Result := Copy(ss, 0, j);
+      if ARemoveQuote and CharInSet(ThisS[i], ['''', '"', '[', '{', '(', '<']) then
+      begin
+        InQuotes := True;
+        case ThisS[i] of
+          '''', '"': QuoteVal := ThisS[i];
+          '[': QuoteVal := ']';
+          '{': QuoteVal := '}';
+          '(': QuoteVal := ')';
+          '<': QuoteVal := '>';
+        end;
+      end
+      else if ThisS[i] = SepVal then
+      begin
+        fs := Copy(ThisS, StartPos, i - StartPos);
+        if ATrim then
+          fs := Trim(fs);
+        if not (ADropNulls and (fs = '')) then
+        begin
+          SetLength(Result, Length(Result) + 1);
+          Result[High(Result)] := fs;
+        end;
+        StartPos := i + 1;
+      end;
     end;
-    if CharPointer = nil then
-      ss := nil
-    else
-      ss := CharPointer + 1;
-  end
-  else
-    Result := '';
+    Inc(i);
+  end;
+
+  fs := Copy(ThisS, StartPos, Length(ThisS) - StartPos + 1);
+  if ATrim then
+    fs := Trim(fs);
+  if not (ADropNulls and (fs = '')) then
+  begin
+    SetLength(Result, Length(Result) + 1);
+    Result[High(Result)] := fs;
+  end;
 end;
 
+
+function FieldSep(var ss: String; SepVal: Char): String;
+var
+  StartPos, EndPos: Integer;
+begin
+  if ss = '' then
+    Exit('');
+
+  // Find the start position of the first non-separator character
+  StartPos := 1;
+  while (StartPos <= Length(ss)) and (ss[StartPos] = SepVal) do
+    Inc(StartPos);
+
+  // Find the position of the separator character or the end of the string
+  EndPos := StartPos;
+  while (EndPos <= Length(ss)) and (ss[EndPos] <> SepVal) do
+    Inc(EndPos);
+
+  // Extract the substring
+  Result := Copy(ss, StartPos, EndPos - StartPos);
+
+  // Update the input string to exclude the processed part
+  if EndPos <= Length(ss) then
+    ss := Copy(ss, EndPos + 1, Length(ss) - EndPos)
+  else
+    ss := '';
+end;
+
+
+ 
 function ReadLineFrmStream(AStream: TStream): String;
 var
   CurPos, EndPos: int64;
@@ -191,8 +187,8 @@ var
   Nxt: Char;
 begin
   CurPos := AStream.Position;
-  EndPos := AStream.Seek(0, soFromEnd);
-  AStream.Seek(CurPos, soFromBeginning);
+  EndPos := AStream.Seek(0, soEnd);
+  AStream.Seek(CurPos, soBeginning);
 
   if 256 > EndPos - CurPos then
     EndSZ := Word(EndPos - CurPos)
@@ -217,8 +213,9 @@ begin
     AStream.Read(Nxt, 1);
   CurPos := AStream.Position;
   if CurPos < EndPos then
-    AStream.seek(CurPos - 1, soFromBeginning);
+    AStream.Seek(CurPos - 1, soBeginning);
 end;
+
 
 function PosNoCase(const ASubstr: String; AFullString: String): Integer;
 var
@@ -245,8 +242,8 @@ begin
   if AObjArray = nil then
     ObjMx := -1
   else
-    ObjMx := high(AObjArray);
-  for i := 0 to high(AArray) do
+    ObjMx := High(AObjArray);
+  for i := 0 to High(AArray) do
     if i > ObjMx then
       AStrings.Add(AArray[i])
     else
