@@ -96,6 +96,7 @@ end;
 procedure TfrmMain.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
   RegIniSave;
+  FreeAndNil(DFMObj);
 end;
 
 

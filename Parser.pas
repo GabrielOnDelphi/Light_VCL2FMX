@@ -118,7 +118,7 @@ begin
   inherited Create;
   i := 0;
   FDepth := ADepth;
-  FOwnedObjs := TObjectList<TParser>.Create(True);
+  FOwnedObjs  := TObjectList<TParser>.Create(True);
   FOwnedItems := TObjectList<TObject>.Create(True);
   if Pos('object', Trim(ACreateText)) = 1 then
   begin
