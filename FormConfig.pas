@@ -9,11 +9,13 @@ unit FormConfig;
 interface
 
 uses
+  winapi.Windows,
   System.SysUtils,
   System.Types,
   System.UITypes,
   System.Classes,
   System.Variants,
+  System.IOUtils,
   FMX.Types,
   FMX.Controls,
   FMX.Forms,
@@ -120,6 +122,7 @@ begin
   try
     sIniFile := RegFile.ReadString('Files', 'Inifile', EmptyStr);
     DeleteFile(ChangeFileExt(sIniFile, '.bkp'));
+    //TFile.rensmr
     System.SysUtils.RenameFile(sIniFile, ChangeFileExt(sIniFile, '.bkp'));
     Ini := TIniFile.Create(sIniFile);
 
