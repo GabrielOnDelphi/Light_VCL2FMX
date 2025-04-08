@@ -2,7 +2,8 @@ UNIT FormMain;
 
 {=============================================================================================================
    Gabriel Moraru
-   2025.01
+   2025.04
+   Convert VCL to FMX
 --------------------------------------------------------------------------------------------------------------
    Code branched from edelphi/vcltofmx
    This is the major update! It has:
@@ -22,19 +23,25 @@ uses
   System.Types,
   System.UITypes,
   System.Classes,
-  System.Variants,
+  //System.Variants,
   System.Win.Registry,
+
   FMX.Types,
   FMX.Controls,
   FMX.Forms,
   FMX.Dialogs,
   FMX.Layouts,
   FMX.Memo,
-  Parser,
   FMX.StdCtrls,
   FMX.ScrollBox,
   FMX.Controls.Presentation,
-  FMX.Objects, FMX.Memo.Types, FMX.Menus;
+
+  FMX.Memo.Types,
+
+  FMX.DialogService,
+
+
+  Parser;
 
 type
   TfrmMain = class(TForm)
@@ -55,17 +62,19 @@ type
     procedure btnConfigClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
   private
-    DFMObj: TParser;
+    DfmParser: TParser;
     ConfigDict: String;
-    InputPAS: String;
-    InputDFM: String;
-    OutputPas: String;
-    OutputFMX: String;
-    function GetRegFile: TRegistryIniFile;
+
+    InputPAS : String;
+    InputDFM : String;
+
+    OutputPas: String;      // Filename of the output file
+    OutputFMX: String;      // Filename of the output file
+
     Procedure RegIniLoad;
     Procedure RegIniSave;
-    Procedure UpdateForm;
-    procedure LoadFile(aFile: string);
+    Procedure ShowSaveButton;
+    procedure LoadFile(aFileName: string);
   end;
 
 VAR
@@ -80,153 +89,128 @@ USES
   Utils,
   ccTextFile,
   ccCore,
+  ccIO,
+
   cbAppDataFmx,
-  FormConfig,
-  FMX.DialogService;
+  FormConfig;
 
 
 
 procedure TfrmMain.FormCreate(Sender: TObject);
 begin
   RegIniLoad;
-  UpdateForm;
+  ShowSaveButton;
 end;
 
 
 procedure TfrmMain.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
   RegIniSave;
-  FreeAndNil(DFMObj);
+  FreeAndNil(DfmParser);
 end;
 
 
 
 
 
-
-
-
-procedure TfrmMain.btnConfigClick(Sender: TObject);
+procedure TfrmMain.LoadFile(aFileName: string);
 begin
-  TFrmConfig.Create(Self).ShowModal;
-  RegIniLoad;
-end;
+  if FileExists(aFileName) then
+    if TParser.IsTextDFM(aFileName)
+    then
+      begin
+        FreeAndNil(DfmParser);
+        //BtnProcess.Enabled:= False;
 
+        InputDFM := aFileName;
+        InputPAS := ChangeFileExt(InputDFM, '.pas');
 
+        Caption  := InputDFM;
+        mmoInputDfm.Lines.LoadFromFile(InputDFM);
+        BtnProcess.Enabled:= TRUE;
+      end
+    else
+      ShowMessage('Binary DFM file not supported!');
 
-
-procedure TfrmMain.LoadFile(aFile: string);
-begin
-  mmoInputDfm.Lines.LoadFromFile(aFile);
-  BtnProcess.Enabled:= TRUE;
-  UpdateForm;
+  ShowSaveButton;
 end;
 
 
 procedure TfrmMain.BtnOpenFileClick(Sender: TObject);
 begin
-  BtnProcess.Enabled:= False;
-  FreeAndNil(DFMObj);
-
   if InputDFM <> ''
   then dlgOpen.InitialDir := ExtractFileDir(InputDFM);
-  if dlgOpen.Execute then
-  begin
-    InputPAS := ChangeFileExt(dlgOpen.FileName, '.pas');
-    InputDFM := ChangeFileExt(InputPAS, '.dfm');
 
-    if FileExists(InputDFM) then
-      if TParser.IsTextDFM(InputDFM)
-      then LoadFile(InputDFM)
-      else ShowMessage('Incompatible DFM file:' + InputDFM);
-  end;
-
-  UpdateForm;
-
-  if AppData.RunningFirstTime
-  then ExecuteURL('https://gabrielmoraru.com/');
+  if dlgOpen.Execute
+  then LoadFile(dlgOpen.FileName);
 end;
 
 
 procedure TfrmMain.BtnProcessClick(Sender: TObject);
 var
-  DfmContent: String;
-  StringList: TStringList;
+  DfmLine: String;
+  DfmBody: TStringList;
   LineIndex: Integer;
 begin
   if mmoInputDfm.Text <> '' then
   begin
-    FreeAndNil(DFMObj);
-    DfmContent := mmoInputDfm.Text;
-    StringList := StringFromFileTSL(InputDFM);
+    FreeAndNil(DfmParser);
+    DfmBody := StringFromFileTSL(InputDFM);
     try
-      // Read the first line to check if it contains 'object'
-      LineIndex := 0;
-      if StringList.Count > 0 then
+      if DfmBody.Count > 0 then
       begin
-        DfmContent := Trim(StringList[LineIndex]);
-        if Pos('object', DfmContent) = 1 then
-          DFMObj := TParser.Create(DfmContent, StringList, 0, LineIndex);
+        LineIndex := 0;
+        DfmLine := Trim(DfmBody[LineIndex]);
+
+        // Read the first line to check if it contains 'object'
+        if Pos('object', DfmLine) = 1 then
+         begin
+           DfmParser := TParser.Create(DfmLine, DfmBody, 0, LineIndex);
+           DfmParser.LiveBindings;
+           DfmParser.LoadInfileDefs(ConfigDict);
+
+           // Show output
+           mmOutput.Text := DfmParser.BuildFmxFile;
+           BtnProcess.Enabled := False;
+           ShowSaveButton;
+         end;
       end;
     finally
-      StringList.Free;
+      DfmBody.Free;
     end;
-  end;
-  if Assigned(DFMObj) then
-  begin
-    DFMObj.LiveBindings;
-    DFMObj.LoadInfileDefs(ConfigDict);
-    mmOutput.Text := '';
-    mmOutput.Text := DFMObj.FMXFile;
-    BtnProcess.Enabled := False;
-    UpdateForm;
   end;
 end;
 
 
-
-
-
-
 procedure TfrmMain.BtnSaveFMXClick(Sender: TObject);
+const
+   AskToOverwrite: boolean= false;
 begin
-  if DFMObj = nil
-  then UpdateForm
+  if DfmParser = nil
+  then ShowSaveButton
   else
    begin
-     OutputPas := ExtractFilePath(OutputPas) + ChangeFileExt(ExtractFileName(InputDFM), 'FMX.pas');
-
-     if not OutputPas.IsEmpty then
+     OutputPas:= AppendToFileName(InputPAS, '_FMX');  // del ExtractFilePath(OutputPas) + ChangeFileExt(ExtractFileName(InputDFM), 'FMX.pas');
+     {
+     if OutputPas <> '' then
      begin
        dlgSalvar.InitialDir := ExtractFileDir(OutputPas);
        dlgSalvar.FileName   := ExtractFileName(ChangeFileExt(OutputPas, '.fmx'));
-     end;
+     end; }
 
-     if dlgSalvar.Execute then
-     begin
-       OutputPas := ChangeFileExt(dlgSalvar.FileName, '.pas');
-       OutputFMX := ChangeFileExt(OutputPas, '.fmx');
+     //OutputPas := ChangeFileExt(dlgSalvar.FileName, '.pas');
+     OutputFMX := ChangeFileExt(OutputPas, '.fmx');
 
+     if AskToOverwrite then
        if FileExists(OutputFMX) or FileExists(OutputPas) then
-         if myMessageDialog('Replace Existing Files: '+ OutputFMX +' - '+ OutputPas,
-           TMsgDlgType.mtWarning,
-           [TMsgDlgBtn.mbOK, TMsgDlgBtn.mbCancel],
-           TMsgDlgBtn.mbOK) = mrOk then
+         if myMessageDialog('Replace Existing Files? '+ CRLF+ OutputFMX +' - '+ OutputPas, TMsgDlgType.mtWarning, [TMsgDlgBtn.mbOK, TMsgDlgBtn.mbCancel], TMsgDlgBtn.mbOK) = mrOk then
          begin
            DeleteFile(OutputFMX);
            DeleteFile(OutputPas);
          end;
 
-       if FileExists(OutputFMX) then
-         raise Exception.Create(OutputFMX + 'File already exists! '+ OutputFMX);
-
-       DFMObj.WriteFMXToFile(OutputFMX);
-
-       if FileExists(OutputPas) then
-         raise Exception.Create(OutputPas + 'File already exists! '+ OutputPas);
-
-       DFMObj.WritePasToFile(OutputPas, InputPAS);
-     end;
+     DfmParser.WriteFMXToFile(OutputFMX);
+     DfmParser.WritePasToFile(OutputPas, InputPAS);
    end;
 end;
 
@@ -235,17 +219,12 @@ end;
 
 
 
-function TfrmMain.GetRegFile: TRegistryIniFile;
-begin
-  Result:= TRegistryIniFile.Create(RegKey);
-end;
-
 
 procedure TfrmMain.RegIniLoad;
 Var
   RegFile: TRegistryIniFile;
 begin
-  RegFile := GetRegFile;
+  RegFile := TRegistryIniFile.Create(RegKey);
   try
     ConfigDict:= RegFile.ReadString('Files', 'ConfigFile',   '');
     InputDFM  := RegFile.ReadString('Files', 'InputDfm',  '');
@@ -272,11 +251,18 @@ begin
 end;
 
 
+procedure TfrmMain.btnConfigClick(Sender: TObject);
+begin
+  TFrmConfig.Create(Self).ShowModal;
+  RegIniLoad;
+end;
+
+
 procedure TfrmMain.RegIniSave;
 Var
   RegFile: TRegistryIniFile;
 begin
-  RegFile := GetRegFile;
+  RegFile := TRegistryIniFile.Create(RegKey);
   try
     RegFile.WriteString('Files', 'ConfigFile', ConfigDict);
     RegFile.WriteString('Files', 'InputDFm'  , InputDFM);
@@ -287,9 +273,9 @@ begin
 end;
 
 
-procedure TfrmMain.UpdateForm;
+procedure TfrmMain.ShowSaveButton;
 begin
-  BtnSaveFMX.Visible := DFMObj <> nil;
+  BtnSaveFMX.Visible := DfmParser <> nil;
 end;
 
 

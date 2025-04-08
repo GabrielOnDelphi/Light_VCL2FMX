@@ -1,3 +1,4 @@
+@ -1,53 +0,0 @@
 # Created by Alan miranda
 # Edited to FMX by Eduardo
 
@@ -51,3 +52,8 @@ __recovery/
 Light_VCL2FMX.exe.before_signature.exe
 /del
 /del2
+/test
+Mida Converter.url
+Fork from here.url
+FormConfig AI.pas
+Light_VCL2FMX.dsv

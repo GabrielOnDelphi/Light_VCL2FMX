@@ -9,23 +9,23 @@ unit FormConfig;
 interface
 
 uses
-  winapi.Windows,
+  Winapi.Windows,
   System.SysUtils,
   System.Types,
   System.UITypes,
   System.Classes,
-  System.Variants,
   System.IOUtils,
+  System.Win.Registry,
+  System.IniFiles,
   FMX.Types,
   FMX.Controls,
   FMX.Forms,
-  FMX.Graphics,
   FMX.Dialogs,
   FMX.TreeView,
-  FMX.Layouts,
-  FMX.Controls.Presentation,
   FMX.StdCtrls,
-  FMX.Edit;
+  FMX.Edit,
+  FMX.Controls.Presentation,
+  FMX.Layouts;
 
 type
   TfrmConfig = class(TForm)
@@ -52,9 +52,6 @@ type
 implementation
 
 uses
-  System.Win.Registry,
-  System.IniFiles,
-  System.StrUtils,
   FormMain;
 
 {$R *.fmx}
@@ -66,8 +63,8 @@ var
 begin
   Dlg := TOpenDialog.Create(Self);
   try
-    Dlg.FileName := ExtractFileName(edtINI.Text);
-    Dlg.InitialDir := ExtractFilePath(edtINI.Text);
+    Dlg.FileName := TPath.GetFileName(edtINI.Text);
+    Dlg.InitialDir := TPath.GetDirectoryName(edtINI.Text);
     Dlg.DefaultExt := '.ini';
     Dlg.Filter := 'INI Files|*.ini|All Files|*.*';
     if Dlg.Execute then
@@ -91,7 +88,7 @@ begin
   if not Assigned(tvINI.Selected) then Exit;
 
   tvSec := TTreeViewItem.Create(tvINI);
-  tvSec.Text := edtVCL.Text +'='+ edtFMX.Text;
+  tvSec.Text := edtVCL.Text + '=' + edtFMX.Text;
   if tvINI.Selected.Level = 1
   then tvINI.Selected.AddObject(tvSec)
   else tvINI.Selected.ParentItem.AddObject(tvSec);
@@ -111,34 +108,32 @@ procedure TfrmConfig.btnSalvarClick(Sender: TObject);
 var
   RegFile: TRegistryIniFile;
   Ini: TIniFile;
-  sIniFile: String;
-  sKey: String;
-  sValue: String;
-  I: Integer;
-  J: Integer;
+  IniFileName, Key, Value: String;
+  I, J: Integer;
 begin
   tvINI.Sorted := True;
   RegFile := TRegistryIniFile.Create(RegKey);
   try
-    sIniFile := RegFile.ReadString('Files', 'Inifile', EmptyStr);
-    DeleteFile(ChangeFileExt(sIniFile, '.bkp'));
-    //TFile.rensmr
-    System.SysUtils.RenameFile(sIniFile, ChangeFileExt(sIniFile, '.bkp'));
-    Ini := TIniFile.Create(sIniFile);
+    IniFileName := RegFile.ReadString('Files', 'Inifile', '');
+    if FileExists(IniFileName) then
+    begin
+      DeleteFile(ChangeFileExt(IniFileName, '.bkp'));
+      RenameFile(IniFileName, ChangeFileExt(IniFileName, '.bkp'));
+    end;
 
-      try
-        for I := 0 to Pred(tvINI.Count) do
+    Ini := TIniFile.Create(IniFileName);
+    try
+      for I := 0 to tvINI.Count - 1 do
+      begin
+        if (tvINI.Items[I].Count = 0) or tvINI.Items[I].Text.Trim.IsEmpty then
+          Continue;
+        for J := 0 to tvINI.Items[I].Count - 1 do
         begin
-          if (tvINI.Items[I].Count = 0) or tvINI.Items[I].Text.Trim.IsEmpty then
-            Continue;
-          for J := 0 to Pred(tvINI.Items[I].Count) do
-          begin
-            sKey := Copy(tvINI.Items[I].Items[J].Text, 1, Pred(Pos('=', tvINI.Items[I].Items[J].Text)));
-            sValue := Copy(tvINI.Items[I].Items[J].Text, Succ(Pos('=', tvINI.Items[I].Items[J].Text)));
-            Ini.WriteString(tvINI.Items[I].Text, sKey, sValue);
-          end;
+          Key := Copy(tvINI.Items[I].Items[J].Text, 1, Pos('=', tvINI.Items[I].Items[J].Text) - 1);
+          Value := Copy(tvINI.Items[I].Items[J].Text, Pos('=', tvINI.Items[I].Items[J].Text) + 1, MaxInt);
+          Ini.WriteString(tvINI.Items[I].Text, Key, Value);
         end;
-
+      end;
     finally
       FreeAndNil(Ini);
     end;
@@ -156,46 +151,43 @@ procedure TfrmConfig.FormCreate(Sender: TObject);
 var
   RegFile: TRegistryIniFile;
   Ini: TIniFile;
-  sIniFile: String;
-  IniObjectTranslations: TStringList;
-  IniSectionValues: TStringList;
-  sClass: String;
-  sItem: String;
-  tvObj: TTreeViewItem;
-  tvSec: TTreeViewItem;
+  IniFileName, ClassName, Item: String;
+  IniSections, IniValues: TStringList;
+  tvObj, tvSec: TTreeViewItem;
 begin
-  RegFile := TRegistryIniFile.Create('DFMtoFMXConvertor');  //don't put it to   RegKey !
+  RegFile := TRegistryIniFile.Create('DFMtoFMXConvertor');
   try
-    sIniFile := RegFile.ReadString('Files', 'Inifile', EmptyStr)
+    IniFileName := RegFile.ReadString('Files', 'Inifile', '');
   finally
     FreeAndNil(RegFile);
   end;
-  edtINI.Text := sIniFile;
-  Ini := TIniFile.Create(sIniFile);
+  edtINI.Text := IniFileName;
+
+  Ini := TIniFile.Create(IniFileName);
   try
-    IniObjectTranslations := TStringList.Create;
+    IniSections := TStringList.Create;
     try
-      Ini.ReadSections(IniObjectTranslations);
-      for sClass in IniObjectTranslations do
+      Ini.ReadSections(IniSections);
+      for ClassName in IniSections do
       begin
         tvObj := TTreeViewItem.Create(tvINI);
-        tvObj.Text := sClass;
-        IniSectionValues := TStringList.Create;
+        tvObj.Text := ClassName;
+        IniValues := TStringList.Create;
         try
-          Ini.ReadSectionValues(sClass, IniSectionValues);
-          for sItem in IniSectionValues do
+          Ini.ReadSectionValues(ClassName, IniValues);
+          for Item in IniValues do
           begin
             tvSec := TTreeViewItem.Create(tvObj);
-            tvSec.Text := sItem;
+            tvSec.Text := Item;
             tvObj.AddObject(tvSec);
           end;
         finally
-          FreeAndNil(IniSectionValues);
+          FreeAndNil(IniValues);
         end;
         tvINI.AddObject(tvObj);
       end;
     finally
-      FreeAndNil(IniObjectTranslations);
+      FreeAndNil(IniSections);
     end;
   finally
     FreeAndNil(Ini);
@@ -203,12 +195,18 @@ begin
 end;
 
 procedure TfrmConfig.tvINIClick(Sender: TObject);
+var
+  PosEqual: Integer;
 begin
-  if not Assigned(tvINI.Selected) then
-    Exit;
+  if not Assigned(tvINI.Selected) then Exit;
 
-  edtVCL.Text := Copy(tvINI.Selected.Text, 1, Pred(Pos('=', tvINI.Selected.Text)));
-  edtFMX.Text := Copy(tvINI.Selected.Text, Succ(Pos('=', tvINI.Selected.Text)));
+  PosEqual := Pos('=', tvINI.Selected.Text);
+  if PosEqual > 0 then
+  begin
+    edtVCL.Text := Copy(tvINI.Selected.Text, 1, PosEqual - 1);
+    edtFMX.Text := Copy(tvINI.Selected.Text, PosEqual + 1, MaxInt);
+  end;
 end;
+
 
 end.

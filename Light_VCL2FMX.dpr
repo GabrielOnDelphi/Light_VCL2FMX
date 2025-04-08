@@ -15,15 +15,10 @@ uses
 {$R *.res}
 
 begin
- {
-  Application.Initialize;
-  Application.CreateForm(TfrmMain, frmMain);
-  Application.Run;
-}
   ReportMemoryLeaksOnShutdown := FALSE;
 
   AppData:= TAppData.Create('Vcl2Fmx');
-  AppData.CreateMainForm(TfrmMain, frmMain, False, True);       // Main form
+  AppData.CreateMainForm(TfrmMain, frmMain, True);       // Main form
   Application.Run;
 end.
 

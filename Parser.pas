@@ -1,5 +1,13 @@
 ﻿unit Parser;
 
+{=============================================================================================================
+   Gabriel Moraru
+   2025.04
+   Convert VCL to FMX
+--------------------------------------------------------------------------------------------------------------
+   This program requires https://github.com/GabrielOnDelphi/Delphi-LightSaber
+=============================================================================================================}
+
 INTERFACE
 
 USES
@@ -7,11 +15,9 @@ USES
   System.Types,
   System.SysUtils,
   System.StrUtils,
-  Contnrs,
+  System.Generics.Collections,
   Winapi.Windows,
   IniFiles,
-  FMX.Objects,
-  System.Generics.Collections,
 
   ParseImage,
   ParseImageList,
@@ -43,7 +49,7 @@ TYPE
     FLinkGridList: TArray<TLinkGrid>;
     FDFMClass: String;
     FObjName: String;
-    FOwnedObjs: TObjectList<TParser>;
+    OwnedObjs: TObjectList<TParser>;
     FOwnedItems: TObjectList<TObject>;
     FDepth: Integer;
     F2DPropertyArray: TTwoDArrayOfString;
@@ -51,42 +57,46 @@ TYPE
     FIniReplaceValues,
     FIniIncludeValues,
     FIniSectionValues,
-    FIniAddProperties,
-    FUsesTranslation,
+    IniAddProperties,
+    UsesTranslation,
     FIniObjectTranslations: TStringList;
-    function AddArrayOfItemProperties(APropertyIdx: Integer; APad: String): String;
+    function AddArrayOfItemProperties(PropertyIdx: Integer; const Pad: String): String;
     function FMXClass: String;
-    function FMXProperties(APad: String): String;
-    function FMXSubObjects(APad: String): String;
+    function FMXProperties(const Pad: String): String;
+    function FMXSubObjects(const Pad: String): String;
     function GetFMXLiveBindings: String;
-    function GetPASLiveBindings: String;
-    function IniAddProperties: TStringList;
     function IniIncludeValues: TStringList;
     function IniObjectTranslations: TStringList;
     function IniReplaceValues: TStringList;
     function IniSectionValues: TStringList;
-    function OwnedObjs: TObjectList<TParser>;
-    function ProcessCodeBody(const ACodeBody: String): String;
-    function ProcessUsesString(AOrigUsesArray: TArrayOfStrings): String;
-    function PropertyArray(ARow: Integer): TArrayOfStrings;
+
+    function ProcessCodeBody(const CodeBody: String): String;
+    function ProcessUsesString(const OrigUsesArray: TArrayOfStrings): String;
+
+    function PropertyArray(Row: Integer): TArrayOfStrings;
     function TransformProperty(ACurrentName, ACurrentValue: String; APad: String = ''): String;
-    function UsesTranslation: TStringList;
-    procedure IniFileLoad(AIni: TIniFile);
-    procedure ReadData(Prop: TTwoDArrayOfString; APropertyIdx: Integer; AList: TStringList; var LineIndex: Integer);
-    procedure ReadItems(Prop: TTwoDArrayOfString; APropertyIdx: Integer; AList: TStringList; var LineIndex: Integer);
-    procedure ReadProperties(AData: String; AList: TStringList; var AIdx: Integer; var LineIndex: Integer);
-    procedure ReadText(Prop: TTwoDArrayOfString; APropertyIdx: Integer; AList: TStringList; var LineIndex: Integer);
-    procedure UpdateUsesStringList(AUsesList: TStrings);
+    procedure IniFileLoad(Ini: TIniFile);
+
+    procedure ReadData      (Prop: TTwoDArrayOfString; PropertyIdx: Integer; List: TStringList; var LineIndex: Integer);
+    procedure ReadItems     (Prop: TTwoDArrayOfString; PropertyIdx: Integer; List: TStringList; var LineIndex: Integer);
+    procedure ReadText      (Prop: TTwoDArrayOfString; PropertyIdx: Integer; List: TStringList; var LineIndex: Integer);
+    procedure ReadProperties(const sData: String; List: TStringList; var Idx: Integer; var LineIndex: Integer);
+
+    procedure UpdateUsesStringList(UsesList: TStrings);
+  protected
+    function GetPASLiveBindings: String;    // UNUSED
   public
-    constructor Create(ACreateText: String; AList: TStringList; ADepth: Integer; var LineIndex: Integer);
+    constructor Create(const CreateText: String; AList: TStringList; ADepth: Integer; var LineIndex: Integer);
     destructor Destroy; override;
-    procedure LoadInFileDefs(AIniFileName: String);
-    function  GenPasFile(CONST PascalSourceFileName: String): String;
-    function  FMXFile(APad: String = ''): String;
-    function  WriteFMXToFile(const AFmxFileName: String): Boolean;
-    function  WritePasToFile(const APasOutFileName, APascalSourceFileName: String): Boolean;
+    procedure LoadInFileDefs(const IniFileName: String);
+    function  GenPasFile1(const PascalSourceFileName: String): String;
+    function  BuildFmxFile(const Pad: String = ''): String;
+
+    procedure WriteFMXToFile(const FmxFileName: String);
+    procedure WritePasToFile(const OutputFile, InputFile: String);
+
     procedure LiveBindings(DfmObject: TObjectList<TParser> = nil);
-    class function IsTextDFM(DfmFileName: String): Boolean;
+    class function IsTextDFM(const DfmFileName: String): Boolean;
   end;
 
  { TDfmToFmxListItem = class(TParser)
@@ -102,55 +112,61 @@ TYPE
 IMPLEMENTATION
 
 USES
-  ccTextFile, ccStreamBuff, System.IOUtils;
+  ccTextFile;
 
 CONST
   ContinueCode: String = '#$Continue$#';
 
 
 
-constructor TParser.Create(ACreateText: String; aList: TStringList; ADepth: Integer; var LineIndex: Integer);
+constructor TParser.Create(const CreateText: String; aList: TStringList; ADepth: Integer; var LineIndex: Integer);
 var
   i: Integer;
   CurrentLine: String;
   InputArray: TArrayOfStrings;
 begin
   inherited Create;
+
+  IniAddProperties := TStringlist.Create;
+  UsesTranslation  := TStringList.Create;
+
   i := 0;
   FDepth := ADepth;
-  FOwnedObjs  := TObjectList<TParser>.Create(True);
+  OwnedObjs  := TObjectList<TParser>.Create(True);
   FOwnedItems := TObjectList<TObject>.Create(True);
-  if Pos('object', Trim(ACreateText)) = 1 then
-  begin
-    InputArray := GetArrayFromString(ACreateText, ' ');
-    if Length(InputArray) < 3 then
-      RAISE Exception.Create('Invalid object declaration: ' + ACreateText);
 
-    FObjName  := InputArray[1];
-    FDFMClass := InputArray[2];
-    Inc(LineIndex);                // Start reading from the next line
-    while (LineIndex < AList.Count) and (Trim(AList[LineIndex]) <> 'end') do
+  if Pos('object', Trim(CreateText)) = 1
+  then
     begin
-      CurrentLine := Trim(AList[LineIndex]);
-      if Pos('object', CurrentLine) = 1 then
-      begin
-        // Pass the current LineIndex to the new parser instance and let it manage
-        FOwnedObjs.Add(TParser.Create(CurrentLine, AList, FDepth + 1, LineIndex));
-        Dec(LineIndex); // Adjust LineIndex after returning from nested parser
-      end
-      else
-      begin
-        ReadProperties(CurrentLine, AList, i, LineIndex);
-      end;
-      Inc(LineIndex);
-    end;
+      InputArray := GetArrayFromString(CreateText, ' ');
+      if Length(InputArray) < 3
+      then RAISE Exception.Create('Invalid object declaration: ' + CreateText);
 
-    // Ensure to skip the 'end' line if it matches
-    if (LineIndex < AList.Count) and (Trim(AList[LineIndex]) = 'end')
-    then Inc(LineIndex);
-  end
+      FObjName  := InputArray[1];
+      FDFMClass := InputArray[2];
+      Inc(LineIndex);                // Start reading from the next line
+      while (LineIndex < AList.Count) and (Trim(AList[LineIndex]) <> 'end') do
+        begin
+          CurrentLine := Trim(AList[LineIndex]);
+          if Pos('object', CurrentLine) = 1
+          then
+            begin
+              // Pass the current LineIndex to the new parser instance and let it manage
+              OwnedObjs.Add(TParser.Create(CurrentLine, AList, FDepth + 1, LineIndex));
+              Dec(LineIndex); // Adjust LineIndex after returning from nested parser
+            end
+          else
+            ReadProperties(CurrentLine, AList, i, LineIndex);
+          Inc(LineIndex);
+        end;
+
+      // Ensure to skip the 'end' line if it matches
+      if (LineIndex < AList.Count) and (Trim(AList[LineIndex]) = 'end')
+      then Inc(LineIndex);
+    end
   else
-    raise Exception.Create('Bad Start: ' + ACreateText);
+    raise Exception.Create('Bad Start: ' + CreateText);
+
   SetLength(F2DPropertyArray, FPropertyMax + 1);
 end;
 
@@ -158,29 +174,30 @@ end;
 
 destructor TParser.Destroy;
 begin
-  FreeAndNil(FOwnedObjs);
+  FreeAndNil(OwnedObjs);
   FreeAndNil(FOwnedItems);
   FreeAndNil(FIniReplaceValues);
   FreeAndNil(FIniIncludeValues);
   FreeAndNil(FIniSectionValues);
-  FreeAndNil(FUsesTranslation);
-  FreeAndNil(FIniAddProperties);
+  FreeAndNil(IniAddProperties);
+  FreeAndNil(UsesTranslation);
+
   inherited Destroy;
 end;
 
 
 
 
-function TParser.AddArrayOfItemProperties(APropertyIdx: Integer; APad: String): String;
+function TParser.AddArrayOfItemProperties(PropertyIdx: Integer; const Pad: String): String;
 begin
-  Result := APad + '  item' + CRLF +
-    APad + '  Prop1 = 6' + CRLF +
-    APad + '  end>' + CRLF;
-  //Tempary patch
+  Result := Pad + '  item' + CRLF +
+            Pad + '  Prop1 = 6' + CRLF +
+            Pad + '  end>' + CRLF;
+  // Temporary patch
 end;
 
 
-class function TParser.IsTextDFM(DfmFileName: String): Boolean;
+class function TParser.IsTextDFM(const DfmFileName: String): Boolean;
 var
   TestString: String;
 begin
@@ -200,18 +217,28 @@ begin
 end;
 
 
-function TParser.FMXFile(APad: String = ''): String;
+// Builds the FMX
+function TParser.BuildFmxFile(const Pad: String = ''): String;
+var
+  Builder: TStringBuilder;
 begin
-  Result := APad + 'object ' + FObjName + ': ' + FMXClass + CRLF;
-  Result := Result + FMXProperties(APad);
-  Result := Result + FMXSubObjects(APad + ' ');
-  if APad = EmptyStr
-  then Result := Result + GetFMXLiveBindings + CRLF + APad + 'end' + CRLF
-  else Result := Result + APad + 'end' + CRLF;
+  Builder := TStringBuilder.Create;
+  try
+    Builder.Append(Pad).Append('object ').Append(FObjName).Append(': ').Append(FMXClass).Append(CRLF)
+           .Append(FMXProperties(Pad))
+           .Append(FMXSubObjects(Pad + ' '));
+    if Pad.IsEmpty then
+      Builder.Append(GetFMXLiveBindings).Append(CRLF).Append(Pad).Append('end').Append(CRLF)
+    else
+      Builder.Append(Pad).Append('end').Append(CRLF);
+    Result := Builder.ToString;
+  finally
+    Builder.Free;
+  end;
 end;
 
 
-function TParser.FMXProperties(APad: String): String;
+function TParser.FMXProperties(const Pad: String): String;
 var
   i: Integer;
   sProp: String;
@@ -220,40 +247,39 @@ begin
   for i := Low(F2DPropertyArray) to High(F2DPropertyArray) do
 
     if F2DPropertyArray[i, 1] = '<'
-    then Result := Result + APad +'  '+ TransformProperty(F2DPropertyArray[i, 0], F2DPropertyArray[i, 1]) + CRLF + AddArrayOfItemProperties(i, APad +'  ') + CRLF
+    then Result := Result + Pad +'  '+ TransformProperty(F2DPropertyArray[i, 0], F2DPropertyArray[i, 1]) + CRLF + AddArrayOfItemProperties(i, Pad +'  ') + CRLF
     else
       if F2DPropertyArray[i, 1][1] = '{' then
       begin
-        sProp := TransformProperty(F2DPropertyArray[i, 0], F2DPropertyArray[i, 1], APad);
+        sProp := TransformProperty(F2DPropertyArray[i, 0], F2DPropertyArray[i, 1], Pad);
         if not sProp.IsEmpty then
-          Result := Result + APad +'  '+ sProp + CRLF;
+          Result := Result + Pad +'  '+ sProp + CRLF;
       end
       else
         if F2DPropertyArray[i, 0] <> EmptyStr then
         begin
           sProp := TransformProperty(F2DPropertyArray[i, 0], F2DPropertyArray[i, 1]);
           if not sProp.IsEmpty then
-            Result := Result + APad +'  '+ sProp + CRLF;
+            Result := Result + Pad +'  '+ sProp + CRLF;
         end;
 
 
   if IniAddProperties.Count > 0 then
-    for i := 0 to Pred(FIniAddProperties.Count) do
-      Result := Result + APad +'  '+ StringReplace(FIniAddProperties[i], '=', ' = ', []) + CRLF;
+    for i := 0 to Pred(IniAddProperties.Count) do
+      Result := Result + Pad +'  '+ StringReplace(IniAddProperties[i], '=', ' = ', []) + CRLF;
 end;
 
 
-function TParser.FMXSubObjects(APad: String): String;
+function TParser.FMXSubObjects(const Pad: String): String;
 var
   I: Integer;
 begin
-  Result := EmptyStr;
-  if FOwnedObjs = nil then
-    Exit;
+  Result := '';
+  if not Assigned(OwnedObjs) then Exit;
 
-  for I := 0 to Pred(FOwnedObjs.Count) do
-    if FOwnedObjs[I] is TParser then
-      Result := Result + TParser(FOwnedObjs[I]).FMXFile(APad + ' ');
+  for I := 0 to OwnedObjs.Count - 1 do
+    if OwnedObjs[I] is TParser then
+      Result := Result + TParser(OwnedObjs[I]).BuildFmxFile(Pad + ' ');
 end;
 
 
@@ -274,128 +300,113 @@ end;
     Combining Results:
         Finally, the function combines the processed PreUsesString, the new uses clause (UsesString), and the processed code body (PostUsesString).
 }
-function TParser.GenPasFile(CONST PascalSourceFileName: String): String;
-const
-  MIN_FILE_SIZE = 20;
+function TParser.GenPasFile1(const PascalSourceFileName: String): String; //mine
 var
-  PreUsesString, PostUsesString, UsesString: String;
+  Body, PreUsesString, PostUsesString, UsesString, UsesClause: String;
   UsesArray: TArrayOfStrings;
-  StartChr, EndChar: PChar;
-  FileSize: Integer;
-  Idx: Integer;
+  iPos, StartPos, PosSemicol, IdxInterface: Integer;
 begin
-  if not FileExists(PascalSourceFileName)
-  then RAISE Exception.CreateFmt('Pascal source file "%s" does not exist.', [PascalSourceFileName]);
+  if not FileExists(PascalSourceFileName) then
+    raise Exception.CreateFmt('Pascal source file "%s" does not exist.', [PascalSourceFileName]);
 
-  FileSize := TFile.GetSize(PascalSourceFileName);  //todo: minify
+  Body := ccTextFile.StringFromFile(PascalSourceFileName);
+  if Body.Length <= 20 then Exit('');
 
-  if FileSize > MIN_FILE_SIZE 
-  then
-    begin
-      PreUsesString:= ccTextFile.StringFromFile(PascalSourceFileName);
+  // Find "interface" first
+  IdxInterface := PosNoCase('interface', Body);
+  if IdxInterface = 0
+  then raise Exception.Create('The "interface" keyword was not found in the Pascal source file.');
 
-      Idx := PosNoCase('uses', PreUsesString);
-      if Idx = 0 then
-        raise Exception.Create('The "uses" clause was not found in the Pascal source file.');
+  // Find "uses" after "interface"
+  iPos := PosEx('uses', LowerCase(Body), IdxInterface);
+  if iPos = 0
+  then raise Exception.Create('The "uses" clause was not found after "interface" in the Pascal source file.');
 
-      StartChr := PChar(PreUsesString) + Idx + 4;
-      EndChar := StrPos(StartChr, ';');
-      if EndChar = nil then
-        raise Exception.Create('The end of the "uses" clause was not found in the Pascal source file.');
+  StartPos := iPos + 5; // After "uses "
+  PosSemicol := PosEx(';', Body, StartPos);
+  if PosSemicol = 0
+  then raise Exception.Create('The end of the "uses" clause was not found in the Pascal source file.');
 
-      UsesArray      := GetArrayFromString(StringReplace(Copy(PreUsesString, Idx + 5, EndChar - StartChr), CRLF, '', [rfReplaceAll]), ',');
-      PostUsesString := Copy(PreUsesString, EndChar - StartChr + Idx + 5, Length(PreUsesString) - (EndChar - StartChr + Idx + 4));
-      PostUsesString := ProcessCodeBody(PostUsesString);
+  UsesClause     := Copy(Body, StartPos, PosSemicol - StartPos);
+  UsesArray      := GetArrayFromString(StringReplace(UsesClause, CRLF, '', [rfReplaceAll]), ',');
+  PostUsesString := Copy(Body, PosSemicol + 1, MaxInt); // After ';'
+  PostUsesString := ProcessCodeBody(PostUsesString);
 
-      Idx := Pos('TBindSourceDB', PostUsesString);
-      if Idx > 0 then
-      PostUsesString := Copy(PostUsesString, 1, Idx + 15) + GetPASLiveBindings + Copy(PostUsesString, Idx + 15);
+  PreUsesString := Copy(Body, 1, iPos - 1); // Everything before "uses"
+  UsesString := ProcessUsesString(UsesArray);
 
-      SetLength(PreUsesString, PosEx('uses', PreUsesString, 1) - 1);
-      UsesString := ProcessUsesString(UsesArray);
-
-      Result := PreUsesString + UsesString + PostUsesString;
-  end
-  else
-    Result := '';
+  Result := PreUsesString + UsesString + PostUsesString;
 end;
 
 
-function TParser.IniAddProperties: TStringlist;
-begin
-  if FIniAddProperties = nil
-  then FIniAddProperties := TStringlist.Create;
-  Result := FIniAddProperties;
-end;
 
-
-procedure TParser.IniFileLoad(AIni: TIniFile);
+procedure TParser.IniFileLoad(Ini: TIniFile);
 var
-  i: integer;
+  I: Integer;
   NewClassName: String;
 begin
-  Assert(AIni <> NIL);
+  Assert(Assigned(Ini));
 
   if FDepth < 1 then
-   begin
-     AIni.ReadSectionValues('ObjectChanges', IniObjectTranslations);
-     AIni.ReadSectionValues('TForm', IniSectionValues);
-     AIni.ReadSectionValues('TFormReplace', IniReplaceValues);
-     AIni.ReadSection      ('TFormInclude', IniIncludeValues);
-   end
+  begin
+    Ini.ReadSectionValues('ObjectChanges', IniObjectTranslations);
+    Ini.ReadSectionValues('TForm'        , IniSectionValues);
+    Ini.ReadSectionValues('TFormReplace' , IniReplaceValues);
+    Ini.ReadSection      ('TFormInclude' , IniIncludeValues);
+  end
   else
-   begin
-     NewClassName := AIni.ReadString('ObjectChanges', FDFMClass, EmptyStr);
-     if NewClassName <> EmptyStr
-     then FDFMClass := NewClassName;
+  begin
+    NewClassName := Ini.ReadString('ObjectChanges', FDFMClass, '');
+    if not NewClassName.IsEmpty then
+      FDFMClass := NewClassName;
 
-     AIni.ReadSectionValues(FDFMClass, IniSectionValues);
-     AIni.ReadSectionValues(FDFMClass + 'Replace', IniReplaceValues);
-     AIni.ReadSection(FDFMClass + 'Include', IniIncludeValues);
-     AIni.ReadSectionValues(FDFMClass + 'AddProperty', IniAddProperties);
-   end;
+    Ini.ReadSectionValues(FDFMClass, IniSectionValues);
+    Ini.ReadSectionValues(FDFMClass + 'Replace', IniReplaceValues);
+    Ini.ReadSection      (FDFMClass + 'Include', IniIncludeValues);
+    Ini.ReadSectionValues(FDFMClass + 'AddProperty', IniAddProperties);
+  end;
 
-  for i := 0 to Pred(OwnedObjs.Count) do
-    if OwnedObjs[i] is TParser then
-      TParser(OwnedObjs[i]).IniFileLoad(AIni);
+  for I := 0 to OwnedObjs.Count - 1 do
+    if OwnedObjs[I] is TParser
+    then TParser(OwnedObjs[I]).IniFileLoad(Ini);
 
-  if FOwnedItems <> nil then
-    for i := 0 to Pred(fOwnedItems.Count) do
-     if fOwnedItems[i] is TParser then
-       TParser(fOwnedItems[i]).IniFileLoad(AIni);
+  if Assigned(FOwnedItems) then
+    for I := 0 to FOwnedItems.Count - 1 do
+      if FOwnedItems[I] is TParser
+      then TParser(FOwnedItems[I]).IniFileLoad(Ini);
 
   if IniSectionValues.Count < 1 then
   begin
-    AIni.WriteString(FDFMClass, 'Empty', 'Add Transformations');
-    AIni.WriteString(FDFMClass, 'Top',   'Position.Y');
-    AIni.WriteString(FDFMClass, 'Left',  'Position.X');
+    Ini.WriteString(FDFMClass, 'Empty', 'Add Transformations');
+    Ini.WriteString(FDFMClass, 'Top', 'Position.Y');
+    Ini.WriteString(FDFMClass, 'Left', 'Position.X');
   end;
 
   if IniIncludeValues.Count < 1
-  then AIni.WriteString(FDFMClass + 'Include', 'FMX.Controls', 'Empty Include');
+  then Ini.WriteString(FDFMClass + 'Include', 'FMX.Controls', 'Empty Include');
 end;
 
 
-function TParser.IniIncludeValues: TStringlist;
+function TParser.IniIncludeValues: TStringList;
 begin
-  if FIniIncludeValues = nil then
-    FIniIncludeValues := TStringlist.Create;
+  if FIniIncludeValues = nil
+  then FIniIncludeValues := TStringlist.Create;
   Result := FIniIncludeValues;
 end;
 
 
 function TParser.IniObjectTranslations: TStringList;
 begin
-  if FIniObjectTranslations = nil then
-    FIniObjectTranslations := TStringlist.Create;
+  if FIniObjectTranslations = nil
+  then FIniObjectTranslations := TStringlist.Create;
   Result := FIniObjectTranslations;
 end;
 
 
-function TParser.IniReplaceValues: TStringlist;
+function TParser.IniReplaceValues: TStringList;
 begin
-  if FIniReplaceValues = nil then
-    FIniReplaceValues := TStringlist.Create;
+  if FIniReplaceValues = nil
+  then FIniReplaceValues := TStringlist.Create;
   Result := FIniReplaceValues;
 end;
 
@@ -408,149 +419,140 @@ begin
 end;
 
 
-procedure TParser.LoadInfileDefs(AIniFileName: String);
+procedure TParser.LoadInFileDefs(const IniFileName: String);
 var
   Ini: TIniFile;
 begin
-  Ini := TIniFile.Create(AIniFileName);
+  Ini := TIniFile.Create(IniFileName);
   try
-  IniFileLoad(Ini);
+    IniFileLoad(Ini);
   finally
     Ini.Free;
-end;
-end;
-
-function TParser.OwnedObjs: TObjectList<TParser>;
-begin
-  if FOwnedObjs = nil
-  then FOwnedObjs := TObjectList<TParser>.Create(TRUE);
-  Result := FOwnedObjs;
+  end;
 end;
 
 
-function TParser.ProcessCodeBody(const ACodeBody: String): String;
+function TParser.ProcessCodeBody(const CodeBody: String): String;
 var
-  BdyStr: String;
+  BodyStr: String;
   Idx: Integer;
   TransArray: TArrayOfStrings;
 begin
-  BdyStr := StringReplace(ACodeBody, '{$R *.DFM}', '{$R *.FMX}', [rfIgnoreCase]);
-  if FIniObjectTranslations <> nil then
-  begin
+  BodyStr := StringReplace(CodeBody, '{$R *.DFM}', '{$R *.FMX}', [rfIgnoreCase]);
+  if Assigned(FIniObjectTranslations) then
     for Idx := 0 to FIniObjectTranslations.Count - 1 do
     begin
       TransArray := GetArrayFromString(FIniObjectTranslations[Idx], '=');
       if Length(TransArray) > 1 then
-        BdyStr := StringReplace(BdyStr, TransArray[0], TransArray[1], [rfReplaceAll, rfIgnoreCase]);
+        BodyStr := StringReplace(BodyStr, TransArray[0], TransArray[1], [rfReplaceAll, rfIgnoreCase]);
     end;
-  end;
-  Result := BdyStr;
+  Result := BodyStr;
 end;
 
 
-function TParser.ProcessUsesString(AOrigUsesArray: TArrayOfStrings): String;
+function TParser.ProcessUsesString(const OrigUsesArray: TArrayOfStrings): String;
 var
-  i: Integer;
+  I: Integer;
+  Builder: TStringBuilder;
 begin
-  PopulateStringsFromArray(UsesTranslation, AOrigUsesArray);
+  PopulateStringsFromArray(UsesTranslation, OrigUsesArray);
   UpdateUsesStringList(UsesTranslation);
-  Result := 'uses ';
-  for i := 0 to Pred(UsesTranslation.Count) do
-    if Trim(FUsesTranslation[i]) <> EmptyStr then
-      Result := Result + CRLF +'  '+ FUsesTranslation[i] + ',';
-  SetLength(Result, Length(Result) - 1); // Remove the trailing comma
-  Result := Result + ';'; // NEW !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  Builder := TStringBuilder.Create;
+  try
+    Builder.Append('uses ');
+    for I := 0 to UsesTranslation.Count - 1 do
+      if not Trim(UsesTranslation[I]).IsEmpty then
+        Builder.Append(CRLF).Append('  ').Append(UsesTranslation[I]).Append(',');
+    Result := Builder.ToString.TrimRight([',']) + ';';
+  finally
+    Builder.Free;
+  end;
 end;
 
-
-function TParser.PropertyArray(ARow: Integer): TArrayOfStrings;
+function TParser.PropertyArray(Row: Integer): TArrayOfStrings;
 begin
-  while ARow >= FPropertyArraySz do
+  while Row >= FPropertyArraySz do
   begin
     Inc(FPropertyArraySz, 5);
     SetLength(F2DPropertyArray, FPropertyArraySz);
   end;
-  if ARow > FPropertyMax then
-    FPropertyMax := ARow;
-  Result := F2DPropertyArray[ARow];
+  if Row > FPropertyMax then
+    FPropertyMax := Row;
+  Result := F2DPropertyArray[Row];
 end;
 
 
-procedure TParser.ReadItems(Prop: TTwoDArrayOfString; APropertyIdx: Integer; AList: TStringList; var LineIndex: Integer);
+procedure TParser.ReadItems(Prop: TTwoDArrayOfString; PropertyIdx: Integer; List: TStringList; var LineIndex: Integer);
 var
   Data: String;
-  saTemp: TArray<String>;
-  sTemp: String;
+  TempArray: TArray<String>;
 begin
   Inc(LineIndex);
-  Data := Trim(AList[LineIndex]);
-  while not (Pos('>', Data) > 0) do
-    begin
-      SetLength(saTemp, Length(saTemp) + 1);
-      saTemp[High(saTemp)] := Data;
-      Inc(LineIndex);
-      Data := Trim(AList[LineIndex]);
-    end;
-  SetLength(saTemp, Length(saTemp) + 1);
-  saTemp[High(saTemp)] := Data;
+  Data := Trim(List[LineIndex]);
+  while Pos('>', Data) = 0 do
+  begin
+    SetLength(TempArray, Length(TempArray) + 1);
+    TempArray[High(TempArray)] := Data;
+    Inc(LineIndex);
+    Data := Trim(List[LineIndex]);
+  end;
+  SetLength(TempArray, Length(TempArray) + 1);
+  TempArray[High(TempArray)] := Data;
 
-  for sTemp in saTemp do
-    Prop[APropertyIdx, 1] := Prop[APropertyIdx, 1] + #13 + sTemp;
+  Prop[PropertyIdx, 1] := String.Join(#13, TempArray);
 end;
 
 
-procedure TParser.ReadData(Prop: TTwoDArrayOfString; APropertyIdx: Integer; AList: TStringList; var LineIndex: Integer);
-var
+procedure TParser.ReadData(Prop: TTwoDArrayOfString; PropertyIdx: Integer; List: TStringList; var LineIndex: Integer);
+var 
   Data: String;
 begin
   Inc(LineIndex);
-  Data := Trim(AList[LineIndex]);
-  while not (Pos('}', Data) > 0) do
-    begin
-      Prop[APropertyIdx, 1] := Prop[APropertyIdx, 1] + Data;
-      Inc(LineIndex);
-      Data := Trim(AList[LineIndex]);
-    end;
-  Prop[APropertyIdx, 1] := Prop[APropertyIdx, 1] + Data;
+  Data := Trim(List[LineIndex]);
+  while Pos('}', Data) = 0 do
+  begin
+    Prop[PropertyIdx, 1] := Prop[PropertyIdx, 1] + Data;
+    Inc(LineIndex);
+    Data := Trim(List[LineIndex]);
+  end;
+  Prop[PropertyIdx, 1] := Prop[PropertyIdx, 1] + Data;
 end;
 
 
-procedure TParser.ReadText(Prop: TTwoDArrayOfString; APropertyIdx: Integer; AList: TStringList; var LineIndex: Integer);
+procedure TParser.ReadText(Prop: TTwoDArrayOfString; PropertyIdx: Integer; List: TStringList; var LineIndex: Integer);
 var
   Data: String;
 begin
   Inc(LineIndex);
-  Data := Trim(AList[LineIndex]);
+  Data := Trim(List[LineIndex]);
   while Pos('+', Data) > 0 do
-    begin
-      Prop[APropertyIdx, 1] := Prop[APropertyIdx, 1] + Data;
-      Inc(LineIndex);
-      Data := Trim(AList[LineIndex]);
-    end;
-  Prop[APropertyIdx, 1] := Prop[APropertyIdx, 1] + Data;
+  begin
+    Prop[PropertyIdx, 1] := Prop[PropertyIdx, 1] + Data;
+    Inc(LineIndex);
+    Data := Trim(List[LineIndex]);
+  end;
+  Prop[PropertyIdx, 1] := Prop[PropertyIdx, 1] + Data;
 end;
 
 
-procedure TParser.ReadProperties(AData: String; AList: TStringList; var AIdx: Integer; var LineIndex: Integer);
+procedure TParser.ReadProperties(const sData: String; List: TStringList; var Idx: Integer; var LineIndex: Integer);
 begin
-  PropertyArray(AIdx);
-  F2DPropertyArray[AIdx] := GetArrayFromString(AData, '=');
-  if High(F2DPropertyArray[AIdx]) < 1 then
-    begin
-      SetLength(F2DPropertyArray[AIdx], 2);
-      F2DPropertyArray[AIdx, 0] := ContinueCode;
-      F2DPropertyArray[AIdx, 1] := AData;
-    end
-  else
-  if F2DPropertyArray[AIdx, 1] = '<'
-  then ReadItems(F2DPropertyArray, AIdx, AList, LineIndex)
-  else
-  if F2DPropertyArray[AIdx, 1] = '{'
-  then ReadData(F2DPropertyArray, AIdx, AList, LineIndex)
-  else
-  if F2DPropertyArray[AIdx, 1] = ''
-  then ReadText(F2DPropertyArray, AIdx, AList, LineIndex);
-  Inc(AIdx);
+  PropertyArray(Idx);
+  F2DPropertyArray[Idx] := GetArrayFromString(sData, '=');
+  if Length(F2DPropertyArray[Idx]) < 2 then
+  begin
+    SetLength(F2DPropertyArray[Idx], 2);
+    F2DPropertyArray[Idx, 0] := ContinueCode;
+    F2DPropertyArray[Idx, 1] := sData;
+  end
+  else if F2DPropertyArray[Idx, 1] = '<' then
+    ReadItems(F2DPropertyArray, Idx, List, LineIndex)
+  else if F2DPropertyArray[Idx, 1] = '{' then
+    ReadData(F2DPropertyArray, Idx, List, LineIndex)
+  else if F2DPropertyArray[Idx, 1].IsEmpty then
+    ReadText(F2DPropertyArray, Idx, List, LineIndex);
+  Inc(Idx);
 end;
 
 
@@ -563,10 +565,10 @@ begin
   else
   begin
     s := FIniSectionValues.Values[ACurrentName];
-    if s = EmptyStr then
-      s := ACurrentName;
-    if s = '#Delete#' then
-      Result := EmptyStr
+    if s = EmptyStr
+    then s := ACurrentName;
+    if s = '#Delete#'
+    then Result := EmptyStr
     else
     if Pos('#TAlign#', s) > 0 then
     begin
@@ -588,95 +590,70 @@ begin
 end;
 
 
-procedure TParser.UpdateUsesStringList(AUsesList: TStrings);
+procedure TParser.UpdateUsesStringList(UsesList: TStrings);
 var
-  i, Idx: Integer;
+  I, Idx: Integer;
 begin
-  if FIniReplaceValues <> nil then
-  begin
-    for i := 0 to Pred(AUsesList.Count) do
+  if Assigned(FIniReplaceValues) then
+    for I := 0 to UsesList.Count - 1 do
     begin
-      Idx := FIniReplaceValues.IndexOfName(AUsesList[i]);
+      Idx := FIniReplaceValues.IndexOfName(UsesList[I]);
       if Idx >= 0 then
-        AUsesList[i] := FIniReplaceValues.ValueFromIndex[Idx];
+        UsesList[I] := FIniReplaceValues.ValueFromIndex[Idx];
     end;
-  end;
 
-  for i := Pred(AUsesList.Count) downto 0 do
-    if Trim(AUsesList[i]) = EmptyStr then
-      AUsesList.Delete(i);
+  for I := UsesList.Count - 1 downto 0 do
+    if Trim(UsesList[I]).IsEmpty then
+      UsesList.Delete(I);
 
-  if FIniIncludeValues <> nil then
-  begin
-    for i := 0 to Pred(FIniIncludeValues.Count) do
-    begin
-      Idx := AUsesList.IndexOf(FIniIncludeValues[i]);
-      if Idx < 0 then
-        AUsesList.Add(FIniIncludeValues[i]);
-    end;
-  end;
+  if Assigned(FIniIncludeValues) then
+    for I := 0 to FIniIncludeValues.Count - 1 do
+      if UsesList.IndexOf(FIniIncludeValues[I]) < 0 then
+        UsesList.Add(FIniIncludeValues[I]);
 
-  if FOwnedObjs = nil then
-    Exit;
-
-  for i := 0 to Pred(FOwnedObjs.Count) do
-    if FOwnedObjs[i] is TParser then
-      TParser(FOwnedObjs[i]).UpdateUsesStringList(AUsesList);
+  if Assigned(OwnedObjs) then
+    for I := 0 to OwnedObjs.Count - 1 do
+      if OwnedObjs[I] is TParser then
+        TParser(OwnedObjs[I]).UpdateUsesStringList(UsesList);
 end;
 
 
-function TParser.UsesTranslation: TStringList;
-begin
-  if FUsesTranslation = nil then
-    FUsesTranslation := TStringList.Create;
-  Result := FUsesTranslation;
-end;
-
-
-function TParser.WriteFMXToFile(const AFmxFileName: String): Boolean;
+procedure TParser.WriteFMXToFile(const FmxFileName: String);
 var
-  OutFile: TFileStream;
-  s: String;
+  FmxBody: String;
 begin
-  s := FMXFile;
-  if s.IsEmpty then
+  FmxBody := BuildFmxFile;
+  if FmxBody.IsEmpty then
     raise Exception.Create('There is no data for the FMX file!');
 
-  if FileExists(AFmxFileName) then
-    RenameFile(AFmxFileName, ChangeFileExt(AFmxFileName, '.fbk'));
+  if FileExists(FmxFileName) then
+    RenameFile(FmxFileName, ChangeFileExt(FmxFileName, '.fbk'));
 
-  OutFile := TFileStream.Create(AFmxFileName, fmCreate);
-  try
-    OutFile.Write(s[1], Length(s));
-    Result := True;
-  finally
-    FreeAndNil(OutFile);
-  end;
+  StringToFile(FmxFileName, FmxBody);
 end;
 
 
-function TParser.WritePasToFile(const APasOutFileName, APascalSourceFileName: String): Boolean;
+// Update the PAS file
+procedure TParser.WritePasToFile(const OutputFile, InputFile: String);
 var
-  OutFile: TFileStream;
-  s: String;
+  FileContent: String;
 begin
-  if not FileExists(APascalSourceFileName)
-  then RAISE Exception.Create('Pascal Source: ' + APascalSourceFileName + ' Does not Exist');
+  if not FileExists(InputFile)
+  then RAISE Exception.Create('Pascal Source: ' + InputFile + ' Does not Exist');
 
-  s := GenPasFile(APascalSourceFileName);
-  if s = ''
-  then RAISE Exception.Create('No Data for Pas File');
-  s := StringReplace(s, ChangeFileExt(ExtractFileName(APascalSourceFileName), EmptyStr), ChangeFileExt(ExtractFileName(APasOutFileName), ''), [rfIgnoreCase]);
-  if FileExists(APasOutFileName)
-  then RenameFile(APasOutFileName, ChangeFileExt(APasOutFileName, '.bak'));
+  FileContent := GenPasFile1(InputFile);
+  if FileContent = ''
+  then  raise Exception.Create('No data for PAS file');
 
-  OutFile := TFileStream.Create(APasOutFileName, fmCreate);
-  try
-    OutFile.Write(s[1], Length(s));
-    Result := True;
-  finally
-    FreeAndNil(OutFile);
-  end;
+  // Replace old file name with the new filename
+  var s1:= ChangeFileExt(ExtractFileName(InputFile), '');
+  var s2:= ChangeFileExt(ExtractFileName(OutputFile), '');
+
+  FileContent := StringReplace(FileContent, s1, s2, [rfIgnoreCase]);
+  if FileExists(OutputFile)
+  then RenameFile(OutputFile, ChangeFileExt(OutputFile, '.bak'));
+
+  StringToFile(OutputFile, FileContent);
 end;
 
 
@@ -692,7 +669,7 @@ var
 begin
   // If you haven't reported an object, you get the initial one
   if DfmObject = NIL
-  then DfmObject := FOwnedObjs;
+  then DfmObject := OwnedObjs;
 
   // Passa por todos objetos filhos
   for I := 0 to Pred(DfmObject.Count) do
@@ -775,8 +752,8 @@ begin
       end;
 
       // Se o componente atual possui componentes nele, faz recursão
-      if Assigned(obj.FOwnedObjs) and (obj.FOwnedObjs.Count > 0) then
-        LiveBindings(obj.FOwnedObjs);
+      if Assigned(Obj.OwnedObjs) and (Obj.OwnedObjs.Count > 0) then
+        LiveBindings(Obj.OwnedObjs);
     end;
   end;
 end;
@@ -810,8 +787,7 @@ begin
   then Exit(EmptyStr);
 
   // Adiciona BindingsList
-  Result :=
-    '  object BindingsList: TBindingsList ' +
+  Result :='  object BindingsList: TBindingsList ' +
     CRLF + '    Methods = <> ' +
     CRLF + '    OutputConverters = <> ' +
     CRLF + '    Left = 20 ' +
@@ -899,3 +875,59 @@ end;
      *)
 
 end.
+
+
+
+
+(*
+function TParser.GenPasFile2(const PascalSourceFileName: String): AnsiString;
+var
+  PasFile: TFileStream;
+  PreUsesString, PostUsesString, UsesString: AnsiString;
+  UsesArray: TArrayOfStrings;
+  StartChr, EndChar: PAnsiChar;
+  Sz: integer;
+  Idx: integer;
+  s: String;
+begin
+  Result := '';
+  PostUsesString := '';
+  UsesString := '';
+  if not FileExists(PascalSourceFileName) then
+    Exit;
+
+  PasFile := TFileStream.Create(PascalSourceFileName, fmOpenRead);
+  try
+    Sz := PasFile.Size;
+    if Sz > 20 then
+    begin
+      SetLength(PreUsesString, Sz);
+      Idx := PasFile.Read(PreUsesString[1], Sz);
+      if Idx <> Sz then
+        raise Exception.Create('Error Pas file read');
+    end
+    else
+      PreUsesString := '';
+  finally
+    FreeAndNil(PasFile);
+  end;
+
+  if Sz > 20 then
+  begin
+    Idx := PosNoCase('uses', String(PreUsesString));
+    StartChr := @PreUsesString[Idx + 4];
+    s := ';';
+    EndChar := StrPos(StartChr, PAnsiChar(s));
+    UsesArray := GetArrayFromString(StringReplace(Copy(String(PreUsesString), Idx + 4, EndChar - StartChr), CRLF, '', [rfReplaceAll]), ',');
+    PostUsesString := Copy(PreUsesString, EndChar - StartChr + Idx + 4, Sz);
+    PostUsesString := AnsiString(ProcessCodeBody(String(PostUsesString)));
+
+    PostUsesString := AnsiString(Copy(String(PostUsesString), 1, Pos('TBindSourceDB', String(PostUsesString)) + 15) +
+      GetPASLiveBindings +
+      Copy(String(PostUsesString), Pos('TBindSourceDB', String(PostUsesString)) + 15));
+
+    SetLength(PreUsesString, Pred(Idx));
+    UsesString := AnsiString(ProcessUsesString(UsesArray));
+  end;
+  Result := PreUsesString + UsesString + PostUsesString;
+end; *)

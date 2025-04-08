@@ -54,6 +54,7 @@ object frmConfig: TfrmConfig
         Size.PlatformDefault = False
         TabOrder = 5
         Text = 'Open'
+        TextSettings.Trimming = None
         OnClick = btnAbrirClick
       end
       object btnSalvar: TButton
@@ -69,6 +70,7 @@ object frmConfig: TfrmConfig
         Size.PlatformDefault = False
         TabOrder = 4
         Text = 'Save'
+        TextSettings.Trimming = None
         OnClick = btnSalvarClick
       end
     end
@@ -87,6 +89,7 @@ object frmConfig: TfrmConfig
       Size.PlatformDefault = False
       TabOrder = 1
       Text = 'Add'
+      TextSettings.Trimming = None
       OnClick = btnAdicionarClick
     end
     object edtVCL: TEdit
@@ -129,6 +132,7 @@ object frmConfig: TfrmConfig
       Size.PlatformDefault = False
       TabOrder = 0
       Text = 'Remove'
+      TextSettings.Trimming = None
       OnClick = btnRemoverClick
     end
   end
