@@ -129,7 +129,7 @@ begin
           Continue;
         for J := 0 to tvINI.Items[I].Count - 1 do
         begin
-          Key := Copy(tvINI.Items[I].Items[J].Text, 1, Pos('=', tvINI.Items[I].Items[J].Text) - 1);
+          Key   := Copy(tvINI.Items[I].Items[J].Text, 1, Pos('=', tvINI.Items[I].Items[J].Text) - 1);
           Value := Copy(tvINI.Items[I].Items[J].Text, Pos('=', tvINI.Items[I].Items[J].Text) + 1, MaxInt);
           Ini.WriteString(tvINI.Items[I].Text, Key, Value);
         end;

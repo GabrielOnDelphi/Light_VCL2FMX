@@ -82,10 +82,15 @@ object frmConfig: TfrmConfig
     Size.PlatformDefault = False
     TabOrder = 1
     object btnAdicionar: TButton
-      Position.X = 296.000000000000000000
-      Position.Y = 8.000000000000000000
+      Align = Right
+      Margins.Left = 3.000000000000000000
+      Margins.Top = 3.000000000000000000
+      Margins.Right = 3.000000000000000000
+      Margins.Bottom = 3.000000000000000000
+      Position.X = 380.000000000000000000
+      Position.Y = 3.000000000000000000
       Size.Width = 73.000000000000000000
-      Size.Height = 22.000000000000000000
+      Size.Height = 35.000000000000000000
       Size.PlatformDefault = False
       TabOrder = 1
       Text = 'Add'
@@ -125,10 +130,15 @@ object frmConfig: TfrmConfig
       TabOrder = 4
     end
     object btnRemover: TButton
-      Position.X = 376.000000000000000000
-      Position.Y = 8.000000000000000000
+      Align = Right
+      Margins.Left = 3.000000000000000000
+      Margins.Top = 3.000000000000000000
+      Margins.Right = 3.000000000000000000
+      Margins.Bottom = 3.000000000000000000
+      Position.X = 301.000000000000000000
+      Position.Y = 3.000000000000000000
       Size.Width = 73.000000000000000000
-      Size.Height = 22.000000000000000000
+      Size.Height = 35.000000000000000000
       Size.PlatformDefault = False
       TabOrder = 0
       Text = 'Remove'

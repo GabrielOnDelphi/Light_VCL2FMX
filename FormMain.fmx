@@ -1,7 +1,7 @@
 object frmMain: TfrmMain
   Left = 0
   Top = 0
-  Caption = 'VCL 2 FMX'
+  Caption = 'Light VCL 2 FMX converter'
   ClientHeight = 500
   ClientWidth = 915
   Position = ScreenCenter
@@ -27,8 +27,8 @@ object frmMain: TfrmMain
     Size.Height = 451.000000000000000000
     Size.PlatformDefault = False
     TabOrder = 1
-    Viewport.Width = 536.000000000000000000
-    Viewport.Height = 451.000000000000000000
+    Viewport.Width = 532.000000000000000000
+    Viewport.Height = 447.000000000000000000
   end
   object mmoInputDfm: TMemo
     Touch.InteractiveGestures = [Pan, LongTap, DoubleTap]
@@ -45,26 +45,26 @@ object frmMain: TfrmMain
     Size.Height = 451.000000000000000000
     Size.PlatformDefault = False
     TabOrder = 0
-    Viewport.Width = 457.000000000000000000
-    Viewport.Height = 451.000000000000000000
+    Viewport.Width = 453.000000000000000000
+    Viewport.Height = 447.000000000000000000
     object Layout1: TLayout
       Position.X = 592.000000000000000000
       Position.Y = 88.000000000000000000
       TabOrder = 0
     end
   end
-  object dlgOpen: TOpenDialog
+  object OpenDialog: TOpenDialog
     Filter = 
       'DFM Files|*.dfm|Pascal Source|*.pas|FireMonkey|*.fmx|All Files *' +
       '.*|*.*'
     Title = 'Find DFM'
     Left = 256
   end
-  object dlgSalvar: TSaveDialog
+  object SaveDialog: TSaveDialog
     Filter = 'Firemonkey|*.FMX|All Files *.*| *.*'
     Left = 312
   end
-  object Layout2: TLayout
+  object layTop: TLayout
     Align = Top
     Margins.Left = 2.000000000000000000
     Margins.Top = 2.000000000000000000
@@ -89,7 +89,7 @@ object frmMain: TfrmMain
       TextSettings.Trimming = None
       OnClick = btnConfigClick
     end
-    object BtnOpenFile: TButton
+    object btnOpenFile: TButton
       Align = FitLeft
       Margins.Left = 2.000000000000000000
       Margins.Right = 2.000000000000000000
@@ -100,9 +100,9 @@ object frmMain: TfrmMain
       TabOrder = 0
       Text = 'Open DFM'
       TextSettings.Trimming = None
-      OnClick = BtnOpenFileClick
+      OnClick = btnOpenFileClick
     end
-    object BtnProcess: TButton
+    object btnProcess: TButton
       Align = FitLeft
       Margins.Left = 2.000000000000000000
       Margins.Right = 2.000000000000000000
@@ -114,9 +114,9 @@ object frmMain: TfrmMain
       TabOrder = 2
       Text = 'Process'
       TextSettings.Trimming = None
-      OnClick = BtnProcessClick
+      OnClick = btnProcessClick
     end
-    object BtnSaveFMX: TButton
+    object btnSave: TButton
       Align = FitLeft
       Margins.Left = 2.000000000000000000
       Margins.Right = 2.000000000000000000
@@ -127,7 +127,7 @@ object frmMain: TfrmMain
       TabOrder = 5
       Text = 'Save FMX'
       TextSettings.Trimming = None
-      OnClick = BtnSaveFMXClick
+      OnClick = btnSaveClick
     end
   end
 end

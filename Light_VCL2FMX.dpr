@@ -4,7 +4,7 @@ uses
   FastMM4,
   System.StartUpCopy,
   FMX.Forms,
-  cbAppDataFmx,
+  LightFMX.AppData,
   Parser in 'Parser.pas',
   FormMain in 'FormMain.pas' {frmMain},
   Utils in 'Utils.pas',
@@ -17,8 +17,8 @@ uses
 begin
   ReportMemoryLeaksOnShutdown := FALSE;
 
-  AppData:= TAppData.Create('Vcl2Fmx');
-  AppData.CreateMainForm(TfrmMain, frmMain, True);       // Main form
+  AppData:= TAppData.Create('Light Vcl2Fmx');
+  AppData.CreateMainForm(TfrmMain, True);       // Main form
   Application.Run;
 end.
 

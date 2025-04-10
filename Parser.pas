@@ -47,28 +47,25 @@ TYPE
   private
     FLinkControlList: TArray<TLinkControl>;
     FLinkGridList: TArray<TLinkGrid>;
-    FDFMClass: String;
-    FObjName: String;
+    DFMClass: String;
+    ObjectName: String;
     OwnedObjs: TObjectList<TParser>;
     FOwnedItems: TObjectList<TObject>;
-    FDepth: Integer;
-    F2DPropertyArray: TTwoDArrayOfString;
-    FPropertyArraySz, FPropertyMax: Integer;
-    FIniReplaceValues,
-    FIniIncludeValues,
-    FIniSectionValues,
+    DepthLevel: Integer;
+    Properties: TTwoDArrayOfString;
+    FPropertyArraySz,
+    MaxPropertyIndex: Integer;
+    IniReplaceValues,
+    IniIncludeValues,
+    IniSectionValues,
     IniAddProperties,
     UsesTranslation,
-    FIniObjectTranslations: TStringList;
+    IniObjectTranslations: TStringList;
     function AddArrayOfItemProperties(PropertyIdx: Integer; const Pad: String): String;
     function FMXClass: String;
-    function FMXProperties(const Pad: String): String;
-    function FMXSubObjects(const Pad: String): String;
-    function GetFMXLiveBindings: String;
-    function IniIncludeValues: TStringList;
-    function IniObjectTranslations: TStringList;
-    function IniReplaceValues: TStringList;
-    function IniSectionValues: TStringList;
+    function FMXProperties(const Indent: String): String;
+    function FMXSubObjects(const Indent: String): String;
+    function GetFMXLiveBindings: string;
 
     function ProcessCodeBody(const CodeBody: String): String;
     function ProcessUsesString(const OrigUsesArray: TArrayOfStrings): String;
@@ -86,11 +83,11 @@ TYPE
   protected
     function GetPASLiveBindings: String;    // UNUSED
   public
-    constructor Create(const CreateText: String; AList: TStringList; ADepth: Integer; var LineIndex: Integer);
+    constructor Create(const CreateText: String; ContentList: TStringList; Depth: Integer; var LineIndex: Integer);
     destructor Destroy; override;
     procedure LoadInFileDefs(const IniFileName: String);
     function  GenPasFile1(const PascalSourceFileName: String): String;
-    function  BuildFmxFile(const Pad: String = ''): String;
+    function  BuildFmxFile(const Indent: String = ''): String;
 
     procedure WriteFMXToFile(const FmxFileName: String);
     procedure WritePasToFile(const OutputFile, InputFile: String);
@@ -119,7 +116,7 @@ CONST
 
 
 
-constructor TParser.Create(const CreateText: String; aList: TStringList; ADepth: Integer; var LineIndex: Integer);
+constructor TParser.Create(const CreateText: String; ContentList: TStringList; Depth: Integer; var LineIndex: Integer);
 var
   i: Integer;
   CurrentLine: String;
@@ -129,9 +126,14 @@ begin
 
   IniAddProperties := TStringlist.Create;
   UsesTranslation  := TStringList.Create;
+  IniSectionValues := TStringlist.Create;
+  IniIncludeValues := TStringlist.Create;
+  IniObjectTranslations := TStringlist.Create;
+  IniReplaceValues := TStringlist.Create;
+
 
   i := 0;
-  FDepth := ADepth;
+  DepthLevel := Depth;
   OwnedObjs  := TObjectList<TParser>.Create(True);
   FOwnedItems := TObjectList<TObject>.Create(True);
 
@@ -142,32 +144,32 @@ begin
       if Length(InputArray) < 3
       then RAISE Exception.Create('Invalid object declaration: ' + CreateText);
 
-      FObjName  := InputArray[1];
-      FDFMClass := InputArray[2];
+    objectName := StringReplace(inputArray[1], ':', '', [rfReplaceAll]); // Remove any colons to prevent double colon bug
+      DFMClass := InputArray[2];
       Inc(LineIndex);                // Start reading from the next line
-      while (LineIndex < AList.Count) and (Trim(AList[LineIndex]) <> 'end') do
+      while (LineIndex < ContentList.Count) and (Trim(ContentList[LineIndex]) <> 'end') do
         begin
-          CurrentLine := Trim(AList[LineIndex]);
+          CurrentLine := Trim(ContentList[LineIndex]);
           if Pos('object', CurrentLine) = 1
           then
             begin
               // Pass the current LineIndex to the new parser instance and let it manage
-              OwnedObjs.Add(TParser.Create(CurrentLine, AList, FDepth + 1, LineIndex));
+              OwnedObjs.Add(TParser.Create(CurrentLine, ContentList, DepthLevel + 1, LineIndex));
               Dec(LineIndex); // Adjust LineIndex after returning from nested parser
             end
           else
-            ReadProperties(CurrentLine, AList, i, LineIndex);
+            ReadProperties(CurrentLine, ContentList, i, LineIndex);
           Inc(LineIndex);
         end;
 
       // Ensure to skip the 'end' line if it matches
-      if (LineIndex < AList.Count) and (Trim(AList[LineIndex]) = 'end')
+      if (LineIndex < ContentList.Count) and (Trim(ContentList[LineIndex]) = 'end')
       then Inc(LineIndex);
     end
   else
-    raise Exception.Create('Bad Start: ' + CreateText);
+    raise Exception.Create('Invalid object start: ' + createText);
 
-  SetLength(F2DPropertyArray, FPropertyMax + 1);
+  SetLength(Properties, MaxPropertyIndex + 1);
 end;
 
 
@@ -176,9 +178,9 @@ destructor TParser.Destroy;
 begin
   FreeAndNil(OwnedObjs);
   FreeAndNil(FOwnedItems);
-  FreeAndNil(FIniReplaceValues);
-  FreeAndNil(FIniIncludeValues);
-  FreeAndNil(FIniSectionValues);
+  FreeAndNil(IniReplaceValues);
+  FreeAndNil(IniIncludeValues);
+  FreeAndNil(IniSectionValues);
   FreeAndNil(IniAddProperties);
   FreeAndNil(UsesTranslation);
 
@@ -213,24 +215,24 @@ end;
 
 function TParser.FMXClass: String;
 begin
-  Result := FDFMClass;
+  Result := DFMClass;
 end;
 
 
 // Builds the FMX
-function TParser.BuildFmxFile(const Pad: String = ''): String;
+function TParser.BuildFmxFile(const Indent: String = ''): String;
 var
   Builder: TStringBuilder;
 begin
   Builder := TStringBuilder.Create;
   try
-    Builder.Append(Pad).Append('object ').Append(FObjName).Append(': ').Append(FMXClass).Append(CRLF)
-           .Append(FMXProperties(Pad))
-           .Append(FMXSubObjects(Pad + ' '));
-    if Pad.IsEmpty then
-      Builder.Append(GetFMXLiveBindings).Append(CRLF).Append(Pad).Append('end').Append(CRLF)
+    Builder.Append(Indent).Append('object ').Append(ObjectName).Append(': ').Append(FMXClass).Append(CRLF)
+           .Append(FMXProperties(Indent))
+           .Append(FMXSubObjects(Indent + ' '));
+    if Indent.IsEmpty then
+      Builder.Append(GetFMXLiveBindings).Append(CRLF).Append(Indent).Append('end').Append(CRLF)
     else
-      Builder.Append(Pad).Append('end').Append(CRLF);
+      Builder.Append(Indent).Append('end').Append(CRLF);
     Result := Builder.ToString;
   finally
     Builder.Free;
@@ -238,39 +240,38 @@ begin
 end;
 
 
-function TParser.FMXProperties(const Pad: String): String;
+function TParser.FMXProperties(const Indent: String): String;
 var
   i: Integer;
   sProp: String;
 begin
   Result := EmptyStr;
-  for i := Low(F2DPropertyArray) to High(F2DPropertyArray) do
+  for i := Low(Properties) to High(Properties) do
 
-    if F2DPropertyArray[i, 1] = '<'
-    then Result := Result + Pad +'  '+ TransformProperty(F2DPropertyArray[i, 0], F2DPropertyArray[i, 1]) + CRLF + AddArrayOfItemProperties(i, Pad +'  ') + CRLF
+    if Properties[i, 1] = '<'
+    then Result := Result + Indent +'  '+ TransformProperty(Properties[i, 0], Properties[i, 1]) + CRLF + AddArrayOfItemProperties(i, Indent +'  ') + CRLF
     else
-      if F2DPropertyArray[i, 1][1] = '{' then
+      if Properties[i, 1][1] = '{' then
       begin
-        sProp := TransformProperty(F2DPropertyArray[i, 0], F2DPropertyArray[i, 1], Pad);
+        sProp := TransformProperty(Properties[i, 0], Properties[i, 1], Indent);
         if not sProp.IsEmpty then
-          Result := Result + Pad +'  '+ sProp + CRLF;
+          Result := Result + Indent +'  '+ sProp + CRLF;
       end
       else
-        if F2DPropertyArray[i, 0] <> EmptyStr then
+        if Properties[i, 0] <> EmptyStr then
         begin
-          sProp := TransformProperty(F2DPropertyArray[i, 0], F2DPropertyArray[i, 1]);
+          sProp := TransformProperty(Properties[i, 0], Properties[i, 1]);
           if not sProp.IsEmpty then
-            Result := Result + Pad +'  '+ sProp + CRLF;
+            Result := Result + Indent +'  '+ sProp + CRLF;
         end;
-
 
   if IniAddProperties.Count > 0 then
     for i := 0 to Pred(IniAddProperties.Count) do
-      Result := Result + Pad +'  '+ StringReplace(IniAddProperties[i], '=', ' = ', []) + CRLF;
+      Result := Result + Indent +'  '+ StringReplace(IniAddProperties[i], '=', ' = ', []) + CRLF;
 end;
 
 
-function TParser.FMXSubObjects(const Pad: String): String;
+function TParser.FMXSubObjects(const Indent: String): String;
 var
   I: Integer;
 begin
@@ -279,7 +280,7 @@ begin
 
   for I := 0 to OwnedObjs.Count - 1 do
     if OwnedObjs[I] is TParser then
-      Result := Result + TParser(OwnedObjs[I]).BuildFmxFile(Pad + ' ');
+      Result := Result + TParser(OwnedObjs[I]).BuildFmxFile(Indent + ' ');
 end;
 
 
@@ -347,24 +348,24 @@ var
 begin
   Assert(Assigned(Ini));
 
-  if FDepth < 1 then
-  begin
-    Ini.ReadSectionValues('ObjectChanges', IniObjectTranslations);
-    Ini.ReadSectionValues('TForm'        , IniSectionValues);
-    Ini.ReadSectionValues('TFormReplace' , IniReplaceValues);
-    Ini.ReadSection      ('TFormInclude' , IniIncludeValues);
-  end
+   if DepthLevel < 1 then
+   begin
+     Ini.ReadSectionValues('ObjectChanges', IniObjectTranslations);
+     Ini.ReadSectionValues('TForm'        , IniSectionValues);
+     Ini.ReadSectionValues('TFormReplace' , IniReplaceValues);
+     Ini.ReadSection      ('TFormInclude' , IniIncludeValues);
+   end
   else
-  begin
-    NewClassName := Ini.ReadString('ObjectChanges', FDFMClass, '');
-    if not NewClassName.IsEmpty then
-      FDFMClass := NewClassName;
+   begin
+     NewClassName := Ini.ReadString('ObjectChanges', DFMClass, '');
+     if not NewClassName.IsEmpty then
+       DFMClass := NewClassName;
 
-    Ini.ReadSectionValues(FDFMClass, IniSectionValues);
-    Ini.ReadSectionValues(FDFMClass + 'Replace', IniReplaceValues);
-    Ini.ReadSection      (FDFMClass + 'Include', IniIncludeValues);
-    Ini.ReadSectionValues(FDFMClass + 'AddProperty', IniAddProperties);
-  end;
+     Ini.ReadSectionValues(DFMClass, IniSectionValues);
+     Ini.ReadSectionValues(DFMClass + 'Replace', IniReplaceValues);
+     Ini.ReadSection      (DFMClass + 'Include', IniIncludeValues);
+     Ini.ReadSectionValues(DFMClass + 'AddProperty', IniAddProperties);
+   end;
 
   for I := 0 to OwnedObjs.Count - 1 do
     if OwnedObjs[I] is TParser
@@ -377,45 +378,13 @@ begin
 
   if IniSectionValues.Count < 1 then
   begin
-    Ini.WriteString(FDFMClass, 'Empty', 'Add Transformations');
-    Ini.WriteString(FDFMClass, 'Top', 'Position.Y');
-    Ini.WriteString(FDFMClass, 'Left', 'Position.X');
+    Ini.WriteString(DFMClass, 'Empty', 'Add Transformations');
+    Ini.WriteString(DFMClass, 'Top', 'Position.Y');
+    Ini.WriteString(DFMClass, 'Left', 'Position.X');
   end;
 
   if IniIncludeValues.Count < 1
-  then Ini.WriteString(FDFMClass + 'Include', 'FMX.Controls', 'Empty Include');
-end;
-
-
-function TParser.IniIncludeValues: TStringList;
-begin
-  if FIniIncludeValues = nil
-  then FIniIncludeValues := TStringlist.Create;
-  Result := FIniIncludeValues;
-end;
-
-
-function TParser.IniObjectTranslations: TStringList;
-begin
-  if FIniObjectTranslations = nil
-  then FIniObjectTranslations := TStringlist.Create;
-  Result := FIniObjectTranslations;
-end;
-
-
-function TParser.IniReplaceValues: TStringList;
-begin
-  if FIniReplaceValues = nil
-  then FIniReplaceValues := TStringlist.Create;
-  Result := FIniReplaceValues;
-end;
-
-
-function TParser.IniSectionValues: TStringlist;
-begin
-  if FIniSectionValues = nil then
-    FIniSectionValues := TStringlist.Create;
-  Result := FIniSectionValues;
+  then Ini.WriteString(DFMClass + 'Include', 'FMX.Controls', 'Empty Include');
 end;
 
 
@@ -439,10 +408,10 @@ var
   TransArray: TArrayOfStrings;
 begin
   BodyStr := StringReplace(CodeBody, '{$R *.DFM}', '{$R *.FMX}', [rfIgnoreCase]);
-  if Assigned(FIniObjectTranslations) then
-    for Idx := 0 to FIniObjectTranslations.Count - 1 do
+  if Assigned(IniObjectTranslations) then
+    for Idx := 0 to IniObjectTranslations.Count - 1 do
     begin
-      TransArray := GetArrayFromString(FIniObjectTranslations[Idx], '=');
+      TransArray := GetArrayFromString(IniObjectTranslations[Idx], '=');
       if Length(TransArray) > 1 then
         BodyStr := StringReplace(BodyStr, TransArray[0], TransArray[1], [rfReplaceAll, rfIgnoreCase]);
     end;
@@ -475,11 +444,12 @@ begin
   while Row >= FPropertyArraySz do
   begin
     Inc(FPropertyArraySz, 5);
-    SetLength(F2DPropertyArray, FPropertyArraySz);
+    SetLength(Properties, FPropertyArraySz);
   end;
-  if Row > FPropertyMax then
-    FPropertyMax := Row;
-  Result := F2DPropertyArray[Row];
+  if Row > MaxPropertyIndex
+  then MaxPropertyIndex := Row;
+
+  Result := Properties[Row];
 end;
 
 
@@ -505,7 +475,7 @@ end;
 
 
 procedure TParser.ReadData(Prop: TTwoDArrayOfString; PropertyIdx: Integer; List: TStringList; var LineIndex: Integer);
-var 
+var
   Data: String;
 begin
   Inc(LineIndex);
@@ -539,19 +509,19 @@ end;
 procedure TParser.ReadProperties(const sData: String; List: TStringList; var Idx: Integer; var LineIndex: Integer);
 begin
   PropertyArray(Idx);
-  F2DPropertyArray[Idx] := GetArrayFromString(sData, '=');
-  if Length(F2DPropertyArray[Idx]) < 2 then
+  Properties[Idx] := GetArrayFromString(sData, '=');
+  if Length(Properties[Idx]) < 2 then
   begin
-    SetLength(F2DPropertyArray[Idx], 2);
-    F2DPropertyArray[Idx, 0] := ContinueCode;
-    F2DPropertyArray[Idx, 1] := sData;
+    SetLength(Properties[Idx], 2);
+    Properties[Idx, 0] := ContinueCode;
+    Properties[Idx, 1] := sData;
   end
-  else if F2DPropertyArray[Idx, 1] = '<' then
-    ReadItems(F2DPropertyArray, Idx, List, LineIndex)
-  else if F2DPropertyArray[Idx, 1] = '{' then
-    ReadData(F2DPropertyArray, Idx, List, LineIndex)
-  else if F2DPropertyArray[Idx, 1].IsEmpty then
-    ReadText(F2DPropertyArray, Idx, List, LineIndex);
+  else if Properties[Idx, 1] = '<' then
+    ReadItems(Properties, Idx, List, LineIndex)
+  else if Properties[Idx, 1] = '{' then
+    ReadData(Properties, Idx, List, LineIndex)
+  else if Properties[Idx, 1].IsEmpty then
+    ReadText(Properties, Idx, List, LineIndex);
   Inc(Idx);
 end;
 
@@ -564,7 +534,7 @@ begin
     Result := ACurrentValue
   else
   begin
-    s := FIniSectionValues.Values[ACurrentName];
+    s := IniSectionValues.Values[ACurrentName];
     if s = EmptyStr
     then s := ACurrentName;
     if s = '#Delete#'
@@ -578,10 +548,10 @@ begin
     else
     if Pos('#Class#', s) > 0 then
     begin
-      if FDFMClass = 'TImage' then
+      if DFMClass = 'TImage' then
         Result := StringReplace(s, '#Class#', ProcessImage(ACurrentValue, APad), [])
       else
-      if FDFMClass = 'TImageList' then
+      if DFMClass = 'TImageList' then
         Result := StringReplace(s, '#Class#', ProcessImageList(ACurrentValue, APad), [])
     end
     else
@@ -594,22 +564,22 @@ procedure TParser.UpdateUsesStringList(UsesList: TStrings);
 var
   I, Idx: Integer;
 begin
-  if Assigned(FIniReplaceValues) then
+  if Assigned(IniSectionValues) then
     for I := 0 to UsesList.Count - 1 do
     begin
-      Idx := FIniReplaceValues.IndexOfName(UsesList[I]);
+      Idx := IniSectionValues.IndexOfName(UsesList[I]);
       if Idx >= 0 then
-        UsesList[I] := FIniReplaceValues.ValueFromIndex[Idx];
+        UsesList[I] := IniSectionValues.ValueFromIndex[Idx];
     end;
 
   for I := UsesList.Count - 1 downto 0 do
     if Trim(UsesList[I]).IsEmpty then
       UsesList.Delete(I);
 
-  if Assigned(FIniIncludeValues) then
-    for I := 0 to FIniIncludeValues.Count - 1 do
-      if UsesList.IndexOf(FIniIncludeValues[I]) < 0 then
-        UsesList.Add(FIniIncludeValues[I]);
+  if Assigned(IniSectionValues) then
+    for I := 0 to IniSectionValues.Count - 1 do
+      if UsesList.IndexOf(IniSectionValues[I]) < 0 then
+        UsesList.Add(IniSectionValues[I]);
 
   if Assigned(OwnedObjs) then
     for I := 0 to OwnedObjs.Count - 1 do
@@ -624,7 +594,7 @@ var
 begin
   FmxBody := BuildFmxFile;
   if FmxBody.IsEmpty then
-    raise Exception.Create('There is no data for the FMX file!');
+    raise Exception.Create('No data for FMX file!');
 
   if FileExists(FmxFileName) then
     RenameFile(FmxFileName, ChangeFileExt(FmxFileName, '.fbk'));
@@ -681,7 +651,7 @@ begin
       obj := TParser(DfmObject[I]);
 
       // Se for uma grid
-      if obj.FDFMClass.Equals('TDBGrid') then
+      if obj.DFMClass.Equals('TDBGrid') then
       begin
         // Inicializa
         sFields := EmptyStr;
@@ -690,20 +660,20 @@ begin
         SetLength(FLinkGridList, Succ(Length(FLinkGridList)));
 
         // Insere o nome da grid
-        FLinkGridList[High(FLinkGridList)].GridControl := obj.FObjName;
+        FLinkGridList[High(FLinkGridList)].GridControl := obj.ObjectName;
 
         // Passa por todas propriedades da grid
-        for J := Low(F2DPropertyArray) to High(F2DPropertyArray) do
+        for J := Low(Properties) to High(Properties) do
         begin
           // Obtem os dados do DataSource
-          if obj.F2DPropertyArray[J, 0].Equals('DataSource') then
-            FLinkGridList[High(FLinkGridList)].DataSource := obj.F2DPropertyArray[J, 1];
+          if obj.Properties[J, 0].Equals('DataSource') then
+            FLinkGridList[High(FLinkGridList)].DataSource := obj.Properties[J, 1];
 
           // Se for as colunas
-          if obj.F2DPropertyArray[J, 0].Equals('Columns') then
+          if obj.Properties[J, 0].Equals('Columns') then
           begin
             // Obtem os dados dos fields
-            sFields := obj.F2DPropertyArray[J, 1];
+            sFields := obj.Properties[J, 1];
 
             slItem := System.StrUtils.SplitString(sFields, #13);
             for sItem in slItem do
@@ -726,24 +696,24 @@ begin
       end;
 
       // Se for um dbedit
-      if obj.FDFMClass.Equals('TDBEdit') then
+      if obj.DFMClass.Equals('TDBEdit') then
       begin
         // Cria um novo item na lista de dbedits
         SetLength(FLinkControlList, Succ(Length(FLinkControlList)));
 
         // Insere o nome do dbedit
-        FLinkControlList[High(FLinkControlList)].Control := obj.FObjName;
+        FLinkControlList[High(FLinkControlList)].Control := obj.ObjectName;
 
         // Passa por todas propriedades do dbedit
-        for J := Low(F2DPropertyArray) to High(F2DPropertyArray) do
+        for J := Low(Properties) to High(Properties) do
         begin
           // Obtem os dados do DataSource
-          if obj.F2DPropertyArray[J, 0].Equals('DataSource') then
-            FLinkControlList[High(FLinkControlList)].DataSource := obj.F2DPropertyArray[J, 1];
+          if obj.Properties[J, 0].Equals('DataSource') then
+            FLinkControlList[High(FLinkControlList)].DataSource := obj.Properties[J, 1];
 
           // Obtem os dados do field
-          if obj.F2DPropertyArray[J, 0].Equals('DataField') then
-            FLinkControlList[High(FLinkControlList)].FieldName := GetArrayFromString(obj.F2DPropertyArray[J, 1], '=', True, True)[0];
+          if obj.Properties[J, 0].Equals('DataField') then
+            FLinkControlList[High(FLinkControlList)].FieldName := GetArrayFromString(obj.Properties[J, 1], '=', True, True)[0];
 
           // Se ja encontrou tudo, sai do loop
           if not FLinkControlList[High(FLinkControlList)].DataSource.IsEmpty and not FLinkControlList[High(FLinkControlList)].FieldName.IsEmpty then

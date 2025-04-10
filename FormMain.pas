@@ -23,7 +23,6 @@ uses
   System.Types,
   System.UITypes,
   System.Classes,
-  //System.Variants,
   System.Win.Registry,
 
   FMX.Types,
@@ -35,11 +34,8 @@ uses
   FMX.StdCtrls,
   FMX.ScrollBox,
   FMX.Controls.Presentation,
-
   FMX.Memo.Types,
-
   FMX.DialogService,
-
 
   Parser;
 
@@ -47,38 +43,32 @@ type
   TfrmMain = class(TForm)
     mmOutput: TMemo;
     mmoInputDfm: TMemo;
-    dlgOpen: TOpenDialog;
-    dlgSalvar: TSaveDialog;
+    OpenDialog: TOpenDialog;
+    SaveDialog: TSaveDialog;
     Layout1: TLayout;
-    Layout2: TLayout;
+    layTop: TLayout;
     btnConfig: TButton;
-    BtnOpenFile: TButton;
-    BtnProcess: TButton;
-    BtnSaveFMX: TButton;
-    procedure BtnOpenFileClick(Sender: TObject);
-    procedure BtnProcessClick(Sender: TObject);
+    btnOpenFile: TButton;
+    btnProcess: TButton;
+    btnSave: TButton;
+    procedure btnOpenFileClick(Sender: TObject);
+    procedure btnProcessClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
-    procedure BtnSaveFMXClick(Sender: TObject);
+    procedure btnSaveClick(Sender: TObject);
     procedure btnConfigClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
   private
     DfmParser: TParser;
-    ConfigDict: String;
+    ConfigFile: String;
 
-    InputPAS : String;
-    InputDFM : String;
+    InputPasFile : String;
+    InputDfmFile : String;
 
-    OutputPas: String;      // Filename of the output file
-    OutputFMX: String;      // Filename of the output file
-
-    Procedure RegIniLoad;
-    Procedure RegIniSave;
-    Procedure ShowSaveButton;
+    Procedure LoadRegistrySettings;
+    Procedure SaveRegistrySettings;
+    Procedure UpdateSaveButtonVisibility;
     procedure LoadFile(aFileName: string);
   end;
-
-VAR
-  frmMain: TfrmMain;
 
 CONST RegKey= 'Vcl2Dfm';
 
@@ -90,22 +80,22 @@ USES
   ccTextFile,
   ccCore,
   ccIO,
-
-  cbAppDataFmx,
+  LightFmx.DialogsDesktop,
+  LightFMX.AppData,
   FormConfig;
 
 
 
 procedure TfrmMain.FormCreate(Sender: TObject);
 begin
-  RegIniLoad;
-  ShowSaveButton;
+  LoadRegistrySettings;
+  UpdateSaveButtonVisibility;
 end;
 
 
 procedure TfrmMain.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
-  RegIniSave;
+  SaveRegistrySettings;
   FreeAndNil(DfmParser);
 end;
 
@@ -122,31 +112,31 @@ begin
         FreeAndNil(DfmParser);
         //BtnProcess.Enabled:= False;
 
-        InputDFM := aFileName;
-        InputPAS := ChangeFileExt(InputDFM, '.pas');
+        InputDfmFile := aFileName;
+        InputPasFile := ChangeFileExt(InputDfmFile, '.pas');
 
-        Caption  := InputDFM;
-        mmoInputDfm.Lines.LoadFromFile(InputDFM);
+        Caption  := InputDfmFile;
+        mmoInputDfm.Lines.LoadFromFile(InputDfmFile);
         BtnProcess.Enabled:= TRUE;
       end
     else
       ShowMessage('Binary DFM file not supported!');
 
-  ShowSaveButton;
+  UpdateSaveButtonVisibility;
 end;
 
 
-procedure TfrmMain.BtnOpenFileClick(Sender: TObject);
+procedure TfrmMain.btnOpenFileClick(Sender: TObject);
 begin
-  if InputDFM <> ''
-  then dlgOpen.InitialDir := ExtractFileDir(InputDFM);
+  if InputDfmFile <> ''
+  then OpenDialog.InitialDir := ExtractFileDir(InputDfmFile);
 
-  if dlgOpen.Execute
-  then LoadFile(dlgOpen.FileName);
+  if OpenDialog.Execute
+  then LoadFile(OpenDialog.FileName);
 end;
 
 
-procedure TfrmMain.BtnProcessClick(Sender: TObject);
+procedure TfrmMain.btnProcessClick(Sender: TObject);
 var
   DfmLine: String;
   DfmBody: TStringList;
@@ -155,7 +145,7 @@ begin
   if mmoInputDfm.Text <> '' then
   begin
     FreeAndNil(DfmParser);
-    DfmBody := StringFromFileTSL(InputDFM);
+    DfmBody := StringFromFileTSL(InputDfmFile);
     try
       if DfmBody.Count > 0 then
       begin
@@ -167,115 +157,100 @@ begin
          begin
            DfmParser := TParser.Create(DfmLine, DfmBody, 0, LineIndex);
            DfmParser.LiveBindings;
-           DfmParser.LoadInfileDefs(ConfigDict);
+           DfmParser.LoadInfileDefs(ConfigFile);
 
            // Show output
            mmOutput.Text := DfmParser.BuildFmxFile;
            BtnProcess.Enabled := False;
-           ShowSaveButton;
+           UpdateSaveButtonVisibility;
          end;
       end;
     finally
-      DfmBody.Free;
+      FreeAndNil(DfmBody);
     end;
   end;
 end;
 
 
-procedure TfrmMain.BtnSaveFMXClick(Sender: TObject);
-const
-   AskToOverwrite: boolean= false;
+procedure TfrmMain.btnSaveClick(Sender: TObject);
+CONST
+  AskToOverwrite: boolean = false;
+VAR
+  OutputPas: String;      // Filename of the output file
+  OutputFMX: String;      // Filename of the output file
 begin
-  if DfmParser = nil
-  then ShowSaveButton
-  else
-   begin
-     OutputPas:= AppendToFileName(InputPAS, '_FMX');  // del ExtractFilePath(OutputPas) + ChangeFileExt(ExtractFileName(InputDFM), 'FMX.pas');
-     {
-     if OutputPas <> '' then
-     begin
-       dlgSalvar.InitialDir := ExtractFileDir(OutputPas);
-       dlgSalvar.FileName   := ExtractFileName(ChangeFileExt(OutputPas, '.fmx'));
-     end; }
+  if DfmParser = nil then
+  begin
+    UpdateSaveButtonVisibility;
+    Exit;
+  end;
 
-     //OutputPas := ChangeFileExt(dlgSalvar.FileName, '.pas');
-     OutputFMX := ChangeFileExt(OutputPas, '.fmx');
+  OutputPas := AppendToFileName(InputPasFile, '_FMX');
+  OutputFMX := ChangeFileExt(OutputPas, '.fmx');
 
-     if AskToOverwrite then
-       if FileExists(OutputFMX) or FileExists(OutputPas) then
-         if myMessageDialog('Replace Existing Files? '+ CRLF+ OutputFMX +' - '+ OutputPas, TMsgDlgType.mtWarning, [TMsgDlgBtn.mbOK, TMsgDlgBtn.mbCancel], TMsgDlgBtn.mbOK) = mrOk then
-         begin
-           DeleteFile(OutputFMX);
-           DeleteFile(OutputPas);
-         end;
-
-     DfmParser.WriteFMXToFile(OutputFMX);
-     DfmParser.WritePasToFile(OutputPas, InputPAS);
-   end;
+  if AskToOverwrite and (FileExists(OutputFMX) or FileExists(OutputPas)) then
+    if MesajYesNo('Replace Existing Files?' + CRLF + OutputFMX + ' - ' + OutputPas) then
+      begin
+        DeleteFile(OutputFMX);
+        DeleteFile(OutputPas);
+        DfmParser.WriteFMXToFile(OutputFMX);
+        DfmParser.WritePasToFile(OutputPas, InputPasFile);
+      end;
 end;
 
 
-
-
-
-
-
-procedure TfrmMain.RegIniLoad;
+// Loads registry settings into form fields
+procedure TfrmMain.LoadRegistrySettings;
 Var
   RegFile: TRegistryIniFile;
 begin
   RegFile := TRegistryIniFile.Create(RegKey);
   try
-    ConfigDict:= RegFile.ReadString('Files', 'ConfigFile',   '');
-    InputDFM  := RegFile.ReadString('Files', 'InputDfm',  '');
-    OutputPas := RegFile.ReadString('Files', 'OutputPas', '');
+    ConfigFile    := RegFile.ReadString('Files', 'ConfigFile', '');
+    InputDfmFile  := RegFile.ReadString('Files', 'InputDfm', '');
 
-    if InputDFM <> ''
-    then InputPAS := ChangeFileExt(InputDFM, '.pas');
+    if InputDfmFile <> ''
+    then InputPasFile := ChangeFileExt(InputDfmFile, '.pas');
 
-    if OutputPas <> '' then
-    begin
-      OutputFMX := ChangeFileExt(OutputPas, '.fmx');
-      dlgOpen.InitialDir := ExtractFileDir(OutputPas);
-    end;
-
-    if FileExists(InputDFM)
-    AND TParser.IsTextDFM(InputDFM)
-    then mmoInputDfm.Lines.LoadFromFile(InputDFM);
+    if FileExists(InputDfmFile)
+    AND TParser.IsTextDFM(InputDfmFile)
+    then mmoInputDfm.Lines.LoadFromFile(InputDfmFile);
   finally
     FreeAndNil(RegFile);
   end;
 
-  if NOT FileExists(ConfigDict)
-  then ConfigDict := AppData.CurFolder+ 'ConversionDict.ini';
+  if NOT FileExists(ConfigFile)
+  then ConfigFile := AppData.CurFolder+ 'ConversionDict.ini';
 end;
 
 
+// Opens the configuration form modally and reloads settings
 procedure TfrmMain.btnConfigClick(Sender: TObject);
 begin
   TFrmConfig.Create(Self).ShowModal;
-  RegIniLoad;
+  LoadRegistrySettings;
 end;
 
 
-procedure TfrmMain.RegIniSave;
+// Saves current settings to the registry
+procedure TfrmMain.SaveRegistrySettings;
 Var
   RegFile: TRegistryIniFile;
 begin
   RegFile := TRegistryIniFile.Create(RegKey);
   try
-    RegFile.WriteString('Files', 'ConfigFile', ConfigDict);
-    RegFile.WriteString('Files', 'InputDFm'  , InputDFM);
-    RegFile.WriteString('Files', 'OutputPas' , OutputPas);
+    RegFile.WriteString('Files', 'ConfigFile', ConfigFile);
+    RegFile.WriteString('Files', 'InputDFm'  , InputDfmFile);
   finally
     FreeAndNil(RegFile);
   end;
 end;
 
 
-procedure TfrmMain.ShowSaveButton;
+// Updates the visibility of the save button based on whether the parser is initialized
+procedure TfrmMain.UpdateSaveButtonVisibility;
 begin
-  BtnSaveFMX.Visible := DfmParser <> nil;
+  btnSave.Visible := DfmParser <> nil;
 end;
 
 
