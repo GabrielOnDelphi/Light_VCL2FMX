@@ -19,58 +19,43 @@ UNIT FormMain;
 interface
 
 uses
-  System.SysUtils,
-  System.Types,
-  System.UITypes,
-  System.Classes,
-  System.Win.Registry,
-
-  FMX.Types,
-  FMX.Controls,
-  FMX.Forms,
-  FMX.Dialogs,
-  FMX.Layouts,
-  FMX.Memo,
-  FMX.StdCtrls,
-  FMX.ScrollBox,
-  FMX.Controls.Presentation,
-  FMX.Memo.Types,
-  FMX.DialogService,
-
+  System.SysUtils, System.Types, System.UITypes, System.Classes, System.Win.Registry,
+  FMX.Types, FMX.Controls, FMX.Forms, FMX.Dialogs, FMX.Layouts, FMX.Memo, FMX.StdCtrls,
+  FMX.ScrollBox, FMX.Controls.Presentation, FMX.Memo.Types, FMX.DialogService,
   Parser;
 
-type
+TYPE
   TfrmMain = class(TForm)
-    mmOutput: TMemo;
-    mmoInputDfm: TMemo;
-    OpenDialog: TOpenDialog;
-    SaveDialog: TSaveDialog;
-    Layout1: TLayout;
-    layTop: TLayout;
-    btnConfig: TButton;
+    btnDictionary: TButton;
     btnOpenFile: TButton;
     btnProcess: TButton;
     btnSave: TButton;
+    Layout1: TLayout;
+    layTop: TLayout;
+    mmoInputDfm: TMemo;
+    mmOutput: TMemo;
+    OpenDialog: TOpenDialog;
+    SaveDialog: TSaveDialog;
     procedure btnOpenFileClick(Sender: TObject);
     procedure btnProcessClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure btnSaveClick(Sender: TObject);
-    procedure btnConfigClick(Sender: TObject);
+    procedure btnDictionaryClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
   private
     DfmParser: TParser;
-    ConfigFile: String;
+    DictionaryFile: String;
 
     InputPasFile : String;
     InputDfmFile : String;
 
-    Procedure LoadRegistrySettings;
-    Procedure SaveRegistrySettings;
+    Procedure LoadSettings;
+    Procedure SaveSettings;
     Procedure UpdateSaveButtonVisibility;
     procedure LoadFile(aFileName: string);
   end;
 
-CONST RegKey= 'Vcl2Dfm';
+CONST RegKey= 'Light Vcl2Dfm';
 
 VAR frmMain: TfrmMain;
 
@@ -78,31 +63,23 @@ IMPLEMENTATION
 {$R *.fmx}
 
 USES
-  Utils,
-  ccTextFile,
-  ccCore,
-  ccIO,
-  LightFmx.DialogsDesktop,
-  LightFMX.AppData,
-  FormConfig;
+  Utils, FormConfig,
+  ccTextFile, ccCore, ccIO, LightFmx.DialogsDesktop, LightFMX.AppData;
 
 
 
 procedure TfrmMain.FormCreate(Sender: TObject);
 begin
-  LoadRegistrySettings;
-  UpdateSaveButtonVisibility;
+  LoadSettings;
+  //UpdateSaveButtonVisibility;
 end;
 
 
 procedure TfrmMain.FormClose(Sender: TObject; var Action: TCloseAction);
 begin
-  SaveRegistrySettings;
+  SaveSettings;
   FreeAndNil(DfmParser);
 end;
-
-
-
 
 
 procedure TfrmMain.LoadFile(aFileName: string);
@@ -112,7 +89,6 @@ begin
     then
       begin
         FreeAndNil(DfmParser);
-        //BtnProcess.Enabled:= False;
 
         InputDfmFile := aFileName;
         InputPasFile := ChangeFileExt(InputDfmFile, '.pas');
@@ -155,15 +131,14 @@ begin
         DfmLine := Trim(DfmBody[LineIndex]);
 
         // Read the first line to check if it contains 'object'
-        if Pos('object', DfmLine) = 1 then
+        if PosInsensitive('object', DfmLine) < 10 then
          begin
            DfmParser := TParser.Create(DfmLine, DfmBody, 0, LineIndex);
            DfmParser.LiveBindings;
-           DfmParser.LoadConfigFile(ConfigFile);
+           DfmParser.LoadConfigFile(DictionaryFile);
 
-           // Show output
-           mmOutput.Text := DfmParser.BuildFmxFile;
-           BtnProcess.Enabled := False;
+           mmOutput.Text := DfmParser.BuildFmxFile; // Show output
+                      //BtnProcess.Enabled := False;
            UpdateSaveButtonVisibility;
          end;
       end;
@@ -190,70 +165,56 @@ VAR
   end;
 
 begin
-  if DfmParser = nil then
-  begin
-    UpdateSaveButtonVisibility;
-    Exit;
-  end;
+  if DfmParser <> nil then
+    begin
+      OutputPas := AppendToFileName(InputPasFile, '_FMX');
+      OutputFMX := ChangeFileExt(OutputPas, '.fmx');
 
-  OutputPas := AppendToFileName(InputPasFile, '_FMX');
-  OutputFMX := ChangeFileExt(OutputPas, '.fmx');
+      if AskToOverwrite
+      AND (FileExists(OutputFMX) or FileExists(OutputPas))
+      then
+        if MesajYesNo('Replace Existing Files?' + CRLF + OutputFMX + ' - ' + OutputPas)
+        then Save
+        else
+      else Save;
+    end;
 
-  if AskToOverwrite
-  AND (FileExists(OutputFMX) or FileExists(OutputPas))
-  then
-    if MesajYesNo('Replace Existing Files?' + CRLF + OutputFMX + ' - ' + OutputPas)
-    then Save
-    else
-  else Save;
-
+ UpdateSaveButtonVisibility;
 end;
 
 
-// Loads registry settings into form fields
-procedure TfrmMain.LoadRegistrySettings;
-Var
-  RegFile: TRegistryIniFile;
-begin
-  RegFile := TRegistryIniFile.Create(RegKey);
-  try
-    ConfigFile    := RegFile.ReadString('Files', 'ConfigFile', '');
-    InputDfmFile  := RegFile.ReadString('Files', 'InputDfm', '');
-
-    if InputDfmFile <> ''
-    then InputPasFile := ChangeFileExt(InputDfmFile, '.pas');
-
-    if FileExists(InputDfmFile)
-    AND TParser.IsTextDFM(InputDfmFile)
-    then mmoInputDfm.Lines.LoadFromFile(InputDfmFile);
-  finally
-    FreeAndNil(RegFile);
-  end;
-
-  if NOT FileExists(ConfigFile)
-  then ConfigFile := AppData.CurFolder+ 'ConversionDict.ini';
-end;
-
-
-// Opens the configuration form modally and reloads settings
-procedure TfrmMain.btnConfigClick(Sender: TObject);
+procedure TfrmMain.btnDictionaryClick(Sender: TObject);
 begin
   TFrmConfig.Create(Self).ShowModal;
-  LoadRegistrySettings;
+  LoadSettings;
 end;
 
 
-// Saves current settings to the registry
-procedure TfrmMain.SaveRegistrySettings;
-Var
-  RegFile: TRegistryIniFile;
+procedure TfrmMain.LoadSettings;
 begin
-  RegFile := TRegistryIniFile.Create(RegKey);
+  VAR Reg := TRegistryIniFile.Create(RegKey);
   try
-    RegFile.WriteString('Files', 'ConfigFile', ConfigFile);
-    RegFile.WriteString('Files', 'InputDFm'  , InputDfmFile);
+    DictionaryFile:= Reg.ReadString('Files', 'ConfigFile', '');
+    if NOT FileExists(DictionaryFile)
+    then DictionaryFile := AppData.CurFolder+ 'ConversionDict.ini';
+
+    InputDfmFile  := Reg.ReadString('Files', 'InputDfm', '');
+    if FileExists(InputDfmFile)
+    then LoadFile(InputDfmFile);
   finally
-    FreeAndNil(RegFile);
+    FreeAndNil(Reg);
+  end;
+end;
+
+
+procedure TfrmMain.SaveSettings;
+begin
+  VAR Reg := TRegistryIniFile.Create(RegKey);
+  try
+    Reg.WriteString('Files', 'ConfigFile', DictionaryFile);
+    Reg.WriteString('Files', 'InputDFm'  , InputDfmFile);
+  finally
+    FreeAndNil(Reg);
   end;
 end;
 

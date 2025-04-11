@@ -4,6 +4,7 @@
 {                 18/09/2019                   }
 {                                              }
 {**********************************************}
+
 unit ParseImageList;
 
 interface
@@ -30,11 +31,13 @@ uses
 var
   FPad: String;
 
+
 function ProcessImageList(sData, APad: String): String;
 begin
-  FPad := APad;
+  FPad   := APad;
   Result := ImageListDFMtoFMX(sData);
 end;
+
 
 function ImageListDFMtoFMX(sData: String): String;
 var
@@ -156,6 +159,7 @@ begin
   end;
 end;
 
+
 procedure StreamToHex(ms:TMemoryStream; LineLen: Integer; var sResult: String);
 var
   s: String;
@@ -169,5 +173,6 @@ begin
     Delete(t, 1, LineLen);
   until t = '';
 end;
+
 
 end.

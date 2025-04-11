@@ -8,6 +8,8 @@
    This program requires https://github.com/GabrielOnDelphi/Delphi-LightSaber
 =============================================================================================================}
 
+{ Fork from Eduardo Rodrigues 2019 }
+
 INTERFACE
 
 USES
@@ -79,7 +81,7 @@ TYPE
     procedure ReadText      (Prop: TTwoDArrayOfString; PropertyIdx: Integer; List: TStringList; var LineIndex: Integer);
     procedure ReadProperties(const sData: String; List: TStringList; var Idx: Integer; var LineIndex: Integer);
 
-    procedure UpdateUsesStringList(UsesList: TStrings);
+    procedure UpdateUses(UsesList: TStrings);
   protected
     function GetPASLiveBindings: String;    // UNUSED
   public
@@ -200,16 +202,13 @@ end;
 
 
 class function TParser.IsTextDFM(const DfmFileName: String): Boolean;
-var
-  TestString: String;
 begin
-  if NOT FileExists(DfmFileName) then EXIT(FALSE);
-
-  TestString:= ccTextFile.StringFromFile(DfmFileName);
-  if Length(TestString) <= 20
-  then EXIT(FALSE);
-
-  Result:= PosNoCase('object', TestString) > 0;
+  Result:= FileExists(DfmFileName);
+  if Result then
+    begin
+      VAR DfmBody:= ccTextFile.StringFromFile(DfmFileName);
+      Result:= PosInsensitive('object', DfmBody) < 20;
+    end;
 end;
 
 
@@ -316,7 +315,7 @@ begin
   if Body.Length <= 20 then Exit('');
 
   // Find "interface" first
-  IdxInterface := PosNoCase('interface', Body);
+  IdxInterface := PosInsensitive('interface', Body);
   if IdxInterface = 0
   then raise Exception.Create('The "interface" keyword was not found in the Pascal source file.');
 
@@ -425,14 +424,14 @@ var
   Builder: TStringBuilder;
 begin
   PopulateStringsFromArray(UsesTranslation, OrigUsesArray);
-  UpdateUsesStringList(UsesTranslation);
+  UpdateUses(UsesTranslation);
 
   Builder := TStringBuilder.Create;
   try
-    Builder.Append('uses ');
+    Builder.Append('USES '+ CRLF);
     for I := 0 to UsesTranslation.Count - 1 do
-      if not Trim(UsesTranslation[I]).IsEmpty then
-        Builder.Append(CRLF).Append('  ').Append(UsesTranslation[I]).Append(',');
+      if not Trim(UsesTranslation[I]).IsEmpty
+      then Builder.Append(' ').Append(UsesTranslation[I]).Append(',');
     Result := Builder.ToString.TrimRight([',']) + ';';
   finally
     Builder.Free;
@@ -559,39 +558,13 @@ begin
   end;
 end;
 
-{procedure TParser.UpdateUsesStringList(UsesList: TStrings);
-var
-  I, Idx: Integer;
-begin
-  if Assigned(IniSectionValues) then
-    for I := 0 to UsesList.Count - 1 do
-    begin
-      Idx := IniSectionValues.IndexOfName(UsesList[I]);
-      if Idx >= 0 then
-        UsesList[I] := IniSectionValues.ValueFromIndex[Idx];
-    end;
-
-  for I := UsesList.Count - 1 downto 0 do
-    if Trim(UsesList[I]).IsEmpty then
-      UsesList.Delete(I);
-
-  if Assigned(IniSectionValues) then
-    for I := 0 to IniSectionValues.Count - 1 do
-      if UsesList.IndexOf(IniSectionValues[I]) < 0 then
-        UsesList.Add(IniSectionValues[I]);
-
-  if Assigned(OwnedObjs) then
-    for I := 0 to OwnedObjs.Count - 1 do
-      if OwnedObjs[I] is TParser then
-        TParser(OwnedObjs[I]).UpdateUsesStringList(UsesList);
-end;}
-
-procedure TParser.UpdateUsesStringList(UsesList: TStrings);
+(*  del
+procedure TParser.UpdateUses(UsesList: TStrings);
 var
   I, Idx: Integer;
 begin
   // Replace existing units based on IniReplaceValues (if it exists)
-  if Assigned(IniReplaceValues) then
+  // if Assigned(IniReplaceValues) then
     for I := 0 to UsesList.Count - 1 do
     begin
       Idx := IniReplaceValues.IndexOfName(UsesList[I]);
@@ -615,6 +588,48 @@ begin
     for I := 0 to OwnedObjs.Count - 1 do
       if OwnedObjs[I] is TParser then
         TParser(OwnedObjs[I]).UpdateUsesStringList(UsesList);
+end;
+*)
+
+procedure TParser.UpdateUses(UsesList: TStrings);
+var
+  i: Integer;
+  UnitName: String;
+begin
+  // Replace existing units based on IniReplaceValues
+  for I := UsesList.Count - 1 downto 0 do
+    begin
+      UnitName := Trim(UsesList[I]);
+      VAR Idx := IniReplaceValues.IndexOfName(UnitName);
+      if Idx >= 0
+      then
+          // Replace with the mapped unit, or remove if mapped to empty
+          if IniReplaceValues.ValueFromIndex[Idx].IsEmpty
+          then UsesList.Delete(I)
+          else UsesList[I] := IniReplaceValues.ValueFromIndex[Idx]
+      else
+        if UnitName.StartsWith('Vcl.', True)
+        then UsesList.Delete(I);     // Remove VCL units not explicitly replaced
+    end;
+
+  // Remove any remaining empty entries
+  for I := UsesList.Count - 1 downto 0 do
+    if Trim(UsesList[I]).IsEmpty
+    then UsesList.Delete(I);
+
+  // Add new units from IniIncludeValues, avoiding duplicates
+  if Assigned(IniIncludeValues) then
+    for I := 0 to IniIncludeValues.Count - 1 do
+      if NOT IniIncludeValues[I].IsEmpty
+        AND (UsesList.IndexOf(IniIncludeValues[I]) < 0)
+        AND NOT SameStr(IniIncludeValues[I], 'Empty Include')
+      then UsesList.Add(IniIncludeValues[I]);
+
+  // Handle owned objects recursively
+  if Assigned(OwnedObjs) then
+    for I := 0 to OwnedObjs.Count - 1 do
+      if OwnedObjs[I] is TParser
+      then TParser(OwnedObjs[I]).UpdateUses(UsesList);
 end;
 
 
@@ -839,39 +854,5 @@ begin
 end;
 
 
-(*
-{ TDfmToFmxListItem }
-constructor TDfmToFmxListItem.Create(AOwner: TParser; APropertyIdx: Integer; AList: TStringList; ADepth: Integer; var LineIndex: Integer);
-var
-  Data: String;
-  i, LoopCount: Integer;
-begin
-  inherited Create('item', AList, ADepth, LineIndex);
-
-  i := 0;
-  FOwner := AOwner;
-  FDepth := ADepth;
-  Data   := EmptyStr;
-  FPropertyIndex := APropertyIdx;
-
-  LoopCount := 55;
-  while (LoopCount > 0) and (Pos('end', Data) <> 1) do
-  begin
-    Dec(LoopCount);
-    if Pos('object', Data) = 1
-    then FOwnedObjs.Add(TParser.Create(Data, AList, FDepth + 1, LineIndex))
-    else ReadProperties(Data, AList, i, LineIndex);
-    Inc(LineIndex);
-    Data := Trim(AList[LineIndex]);
-    if Data <> EmptyStr then
-      LoopCount := 55;
-  end;
-
-  SetLength(F2DPropertyArray, FPropertyMax + 1);
-  FHasMore := (Pos('end', Data) = 1) and not (Pos('end>', Data) = 1);
-end;
-     *)
-
 end.
 
-end; *)
