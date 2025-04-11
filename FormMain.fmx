@@ -104,6 +104,7 @@ object frmMain: TfrmMain
     end
     object btnProcess: TButton
       Align = FitLeft
+      Enabled = False
       Margins.Left = 2.000000000000000000
       Margins.Right = 2.000000000000000000
       Position.X = 155.734436035156300000

@@ -72,7 +72,7 @@ TYPE
 
     function PropertyArray(Row: Integer): TArrayOfStrings;
     function TransformProperty(ACurrentName, ACurrentValue: String; APad: String = ''): String;
-    procedure IniFileLoad(Ini: TIniFile);
+    procedure _loadConfigFile(Ini: TIniFile);
 
     procedure ReadData      (Prop: TTwoDArrayOfString; PropertyIdx: Integer; List: TStringList; var LineIndex: Integer);
     procedure ReadItems     (Prop: TTwoDArrayOfString; PropertyIdx: Integer; List: TStringList; var LineIndex: Integer);
@@ -85,7 +85,7 @@ TYPE
   public
     constructor Create(const CreateText: String; ContentList: TStringList; Depth: Integer; var LineIndex: Integer);
     destructor Destroy; override;
-    procedure LoadInFileDefs(const IniFileName: String);
+    procedure LoadConfigFile(const IniFileName: String);
     function  GenPasFile1(const PascalSourceFileName: String): String;
     function  BuildFmxFile(const Indent: String = ''): String;
 
@@ -128,9 +128,8 @@ begin
   UsesTranslation  := TStringList.Create;
   IniSectionValues := TStringlist.Create;
   IniIncludeValues := TStringlist.Create;
-  IniObjectTranslations := TStringlist.Create;
   IniReplaceValues := TStringlist.Create;
-
+  IniObjectTranslations := TStringlist.Create;
 
   i := 0;
   DepthLevel := Depth;
@@ -144,7 +143,7 @@ begin
       if Length(InputArray) < 3
       then RAISE Exception.Create('Invalid object declaration: ' + CreateText);
 
-    objectName := StringReplace(inputArray[1], ':', '', [rfReplaceAll]); // Remove any colons to prevent double colon bug
+      objectName := StringReplace(inputArray[1], ':', '', [rfReplaceAll]); // Remove any colons to prevent double colon bug
       DFMClass := InputArray[2];
       Inc(LineIndex);                // Start reading from the next line
       while (LineIndex < ContentList.Count) and (Trim(ContentList[LineIndex]) <> 'end') do
@@ -183,6 +182,7 @@ begin
   FreeAndNil(IniSectionValues);
   FreeAndNil(IniAddProperties);
   FreeAndNil(UsesTranslation);
+  FreeAndNil(IniObjectTranslations);
 
   inherited Destroy;
 end;
@@ -229,10 +229,12 @@ begin
     Builder.Append(Indent).Append('object ').Append(ObjectName).Append(': ').Append(FMXClass).Append(CRLF)
            .Append(FMXProperties(Indent))
            .Append(FMXSubObjects(Indent + ' '));
-    if Indent.IsEmpty then
+    if Indent.IsEmpty
+    then
       Builder.Append(GetFMXLiveBindings).Append(CRLF).Append(Indent).Append('end').Append(CRLF)
     else
       Builder.Append(Indent).Append('end').Append(CRLF);
+
     Result := Builder.ToString;
   finally
     Builder.Free;
@@ -341,7 +343,7 @@ end;
 
 
 
-procedure TParser.IniFileLoad(Ini: TIniFile);
+procedure TParser._loadConfigFile(Ini: TIniFile);
 var
   I: Integer;
   NewClassName: String;
@@ -369,12 +371,12 @@ begin
 
   for I := 0 to OwnedObjs.Count - 1 do
     if OwnedObjs[I] is TParser
-    then TParser(OwnedObjs[I]).IniFileLoad(Ini);
+    then TParser(OwnedObjs[I])._loadConfigFile(Ini);
 
   if Assigned(FOwnedItems) then
     for I := 0 to FOwnedItems.Count - 1 do
       if FOwnedItems[I] is TParser
-      then TParser(FOwnedItems[I]).IniFileLoad(Ini);
+      then TParser(FOwnedItems[I])._loadConfigFile(Ini);
 
   if IniSectionValues.Count < 1 then
   begin
@@ -388,13 +390,11 @@ begin
 end;
 
 
-procedure TParser.LoadInFileDefs(const IniFileName: String);
-var
-  Ini: TIniFile;
+procedure TParser.LoadConfigFile(const IniFileName: String);
 begin
-  Ini := TIniFile.Create(IniFileName);
+  VAR Ini := TIniFile.Create(IniFileName);
   try
-    IniFileLoad(Ini);
+    _loadConfigFile(Ini);
   finally
     Ini.Free;
   end;
@@ -559,8 +559,7 @@ begin
   end;
 end;
 
-
-procedure TParser.UpdateUsesStringList(UsesList: TStrings);
+{procedure TParser.UpdateUsesStringList(UsesList: TStrings);
 var
   I, Idx: Integer;
 begin
@@ -581,6 +580,37 @@ begin
       if UsesList.IndexOf(IniSectionValues[I]) < 0 then
         UsesList.Add(IniSectionValues[I]);
 
+  if Assigned(OwnedObjs) then
+    for I := 0 to OwnedObjs.Count - 1 do
+      if OwnedObjs[I] is TParser then
+        TParser(OwnedObjs[I]).UpdateUsesStringList(UsesList);
+end;}
+
+procedure TParser.UpdateUsesStringList(UsesList: TStrings);
+var
+  I, Idx: Integer;
+begin
+  // Replace existing units based on IniReplaceValues (if it exists)
+  if Assigned(IniReplaceValues) then
+    for I := 0 to UsesList.Count - 1 do
+    begin
+      Idx := IniReplaceValues.IndexOfName(UsesList[I]);
+      if Idx >= 0 then
+        UsesList[I] := IniReplaceValues.ValueFromIndex[Idx];
+    end;
+
+  // Remove any empty entries
+  for I := UsesList.Count - 1 downto 0 do
+    if Trim(UsesList[I]).IsEmpty then
+      UsesList.Delete(I);
+
+  // Add new units from IniIncludeValues (if it exists)
+  if Assigned(IniIncludeValues) then
+    for I := 0 to IniIncludeValues.Count - 1 do
+      if UsesList.IndexOf(IniIncludeValues[I]) < 0 then
+        UsesList.Add(IniIncludeValues[I]);
+
+  // Handle owned objects recursively (if applicable)
   if Assigned(OwnedObjs) then
     for I := 0 to OwnedObjs.Count - 1 do
       if OwnedObjs[I] is TParser then
@@ -625,8 +655,6 @@ begin
 
   StringToFile(OutputFile, FileContent);
 end;
-
-
 
 
 procedure TParser.LiveBindings(DfmObject: TObjectList<TParser> = nil);
@@ -846,58 +874,4 @@ end;
 
 end.
 
-
-
-
-(*
-function TParser.GenPasFile2(const PascalSourceFileName: String): AnsiString;
-var
-  PasFile: TFileStream;
-  PreUsesString, PostUsesString, UsesString: AnsiString;
-  UsesArray: TArrayOfStrings;
-  StartChr, EndChar: PAnsiChar;
-  Sz: integer;
-  Idx: integer;
-  s: String;
-begin
-  Result := '';
-  PostUsesString := '';
-  UsesString := '';
-  if not FileExists(PascalSourceFileName) then
-    Exit;
-
-  PasFile := TFileStream.Create(PascalSourceFileName, fmOpenRead);
-  try
-    Sz := PasFile.Size;
-    if Sz > 20 then
-    begin
-      SetLength(PreUsesString, Sz);
-      Idx := PasFile.Read(PreUsesString[1], Sz);
-      if Idx <> Sz then
-        raise Exception.Create('Error Pas file read');
-    end
-    else
-      PreUsesString := '';
-  finally
-    FreeAndNil(PasFile);
-  end;
-
-  if Sz > 20 then
-  begin
-    Idx := PosNoCase('uses', String(PreUsesString));
-    StartChr := @PreUsesString[Idx + 4];
-    s := ';';
-    EndChar := StrPos(StartChr, PAnsiChar(s));
-    UsesArray := GetArrayFromString(StringReplace(Copy(String(PreUsesString), Idx + 4, EndChar - StartChr), CRLF, '', [rfReplaceAll]), ',');
-    PostUsesString := Copy(PreUsesString, EndChar - StartChr + Idx + 4, Sz);
-    PostUsesString := AnsiString(ProcessCodeBody(String(PostUsesString)));
-
-    PostUsesString := AnsiString(Copy(String(PostUsesString), 1, Pos('TBindSourceDB', String(PostUsesString)) + 15) +
-      GetPASLiveBindings +
-      Copy(String(PostUsesString), Pos('TBindSourceDB', String(PostUsesString)) + 15));
-
-    SetLength(PreUsesString, Pred(Idx));
-    UsesString := AnsiString(ProcessUsesString(UsesArray));
-  end;
-  Result := PreUsesString + UsesString + PostUsesString;
 end; *)

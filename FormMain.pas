@@ -72,6 +72,8 @@ type
 
 CONST RegKey= 'Vcl2Dfm';
 
+VAR frmMain: TfrmMain;
+
 IMPLEMENTATION
 {$R *.fmx}
 
@@ -116,8 +118,8 @@ begin
         InputPasFile := ChangeFileExt(InputDfmFile, '.pas');
 
         Caption  := InputDfmFile;
-        mmoInputDfm.Lines.LoadFromFile(InputDfmFile);
         BtnProcess.Enabled:= TRUE;
+        mmoInputDfm.Lines.LoadFromFile(InputDfmFile);
       end
     else
       ShowMessage('Binary DFM file not supported!');
@@ -157,7 +159,7 @@ begin
          begin
            DfmParser := TParser.Create(DfmLine, DfmBody, 0, LineIndex);
            DfmParser.LiveBindings;
-           DfmParser.LoadInfileDefs(ConfigFile);
+           DfmParser.LoadConfigFile(ConfigFile);
 
            // Show output
            mmOutput.Text := DfmParser.BuildFmxFile;
@@ -178,6 +180,15 @@ CONST
 VAR
   OutputPas: String;      // Filename of the output file
   OutputFMX: String;      // Filename of the output file
+
+  procedure Save;
+  begin
+    DeleteFile(OutputFMX);
+    DeleteFile(OutputPas);
+    DfmParser.WriteFMXToFile(OutputFMX);
+    DfmParser.WritePasToFile(OutputPas, InputPasFile);
+  end;
+
 begin
   if DfmParser = nil then
   begin
@@ -188,14 +199,14 @@ begin
   OutputPas := AppendToFileName(InputPasFile, '_FMX');
   OutputFMX := ChangeFileExt(OutputPas, '.fmx');
 
-  if AskToOverwrite and (FileExists(OutputFMX) or FileExists(OutputPas)) then
-    if MesajYesNo('Replace Existing Files?' + CRLF + OutputFMX + ' - ' + OutputPas) then
-      begin
-        DeleteFile(OutputFMX);
-        DeleteFile(OutputPas);
-        DfmParser.WriteFMXToFile(OutputFMX);
-        DfmParser.WritePasToFile(OutputPas, InputPasFile);
-      end;
+  if AskToOverwrite
+  AND (FileExists(OutputFMX) or FileExists(OutputPas))
+  then
+    if MesajYesNo('Replace Existing Files?' + CRLF + OutputFMX + ' - ' + OutputPas)
+    then Save
+    else
+  else Save;
+
 end;
 
 

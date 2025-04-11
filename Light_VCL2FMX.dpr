@@ -10,7 +10,8 @@ uses
   Utils in 'Utils.pas',
   FormConfig in 'FormConfig.pas' {frmConfig},
   ParseImage in 'ParseImage.pas',
-  ParseImageList in 'ParseImageList.pas';
+  ParseImageList in 'ParseImageList.pas',
+  ccINIFile in 'C:\Projects\LightSaber\ccINIFile.pas';
 
 {$R *.res}
 
@@ -18,8 +19,8 @@ begin
   ReportMemoryLeaksOnShutdown := FALSE;
 
   AppData:= TAppData.Create('Light Vcl2Fmx');
-  AppData.CreateMainForm(TfrmMain, True);       // Main form
-  Application.Run;
+  AppData.CreateMainForm(TfrmMain, frmMain, TRUE, asFull);       // Main form
+  AppData.Run;
 end.
 
 
