@@ -36,6 +36,7 @@ TYPE
     mmOutput: TMemo;
     OpenDialog: TOpenDialog;
     SaveDialog: TSaveDialog;
+    Splitter1: TSplitter;
     procedure btnOpenFileClick(Sender: TObject);
     procedure btnProcessClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
@@ -84,22 +85,24 @@ end;
 
 procedure TfrmMain.LoadFile(aFileName: string);
 begin
-  if FileExists(aFileName) then
-    if TParser.IsTextDFM(aFileName)
-    then
-      begin
-        FreeAndNil(DfmParser);
+  if NOT FileExists(aFileName) then EXIT;
+  if not IsThisType(aFileName, 'dfm') then EXIT;
 
-        InputDfmFile := aFileName;
-        InputPasFile := ChangeFileExt(InputDfmFile, '.pas');
-
-        Caption  := InputDfmFile;
-        BtnProcess.Enabled:= TRUE;
-        mmoInputDfm.Lines.LoadFromFile(InputDfmFile);
-      end
-    else
+  if NOT TParser.IsTextDFM(aFileName) then
+    begin
       ShowMessage('Binary DFM file not supported!');
+      EXIT;
+    end;
 
+  InputDfmFile := aFileName;
+  InputPasFile := ChangeFileExt(InputDfmFile, '.pas');
+
+  Caption  := InputDfmFile;
+  BtnProcess.Enabled:= TRUE;
+  mmoInputDfm.Lines.LoadFromFile(InputDfmFile);
+  mmOutput.Clear;
+
+  FreeAndNil(DfmParser);
   UpdateSaveButtonVisibility;
 end;
 
@@ -199,8 +202,7 @@ begin
     then DictionaryFile := AppData.CurFolder+ 'ConversionDict.ini';
 
     InputDfmFile  := Reg.ReadString('Files', 'InputDfm', '');
-    if FileExists(InputDfmFile)
-    then LoadFile(InputDfmFile);
+    LoadFile(InputDfmFile);
   finally
     FreeAndNil(Reg);
   end;
