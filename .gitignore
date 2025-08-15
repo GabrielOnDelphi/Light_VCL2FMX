@@ -59,3 +59,5 @@ FormConfig AI.pas
 Light_VCL2FMX.dsv
 Light_VCL2FMX_MemoryManager_EventLog.txt
 ConversionDict backup.ini
+/dict backup
+Light_VCL2FMX-orig.exe
