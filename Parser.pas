@@ -23,7 +23,7 @@ USES
 
   ParseImage,
   ParseImageList,
-  ccCore,
+  LightCore,
   Utils;
 
 TYPE
@@ -111,7 +111,7 @@ TYPE
 IMPLEMENTATION
 
 USES
-  ccTextFile;
+  LightCore.TextFile;
 
 CONST
   ContinueCode: String = '#$Continue$#';
@@ -206,7 +206,7 @@ begin
   Result:= FileExists(DfmFileName);
   if Result then
     begin
-      VAR DfmBody:= ccTextFile.StringFromFile(DfmFileName);
+      VAR DfmBody:= LightCore.TextFile.StringFromFile(DfmFileName);
       Result:= PosInsensitive('object', DfmBody) < 20;
     end;
 end;
@@ -311,7 +311,7 @@ begin
   if not FileExists(PascalSourceFileName) then
     raise Exception.CreateFmt('Pascal source file "%s" does not exist.', [PascalSourceFileName]);
 
-  Body := ccTextFile.StringFromFile(PascalSourceFileName);
+  Body := LightCore.TextFile.StringFromFile(PascalSourceFileName);
   if Body.Length <= 20 then Exit('');
 
   // Find "interface" first
@@ -529,33 +529,42 @@ function TParser.TransformProperty(ACurrentName, ACurrentValue: String; APad: St
 var
   s: String;
 begin
-  if ACurrentName = ContinueCode then
-    Result := ACurrentValue
+  if ACurrentName = ContinueCode
+  then Result := ACurrentValue
   else
-  begin
-    s := IniSectionValues.Values[ACurrentName];
-    if s = EmptyStr
-    then s := ACurrentName;
-    if s = '#Delete#'
-    then Result := EmptyStr
+    if ACurrentName = 'AlignWithMargins'
+    then
+      if ACurrentValue = 'True'
+      then Result := '   Margins.Left = 3.0'  + #13#10 +
+                     '   Margins.Top = 3.0'   + #13#10 +
+                     '   Margins.Right = 3.0' + #13#10 +
+                     '   Margins.Bottom = 3.0'
+      else Result := ''
     else
-    if Pos('#TAlign#', s) > 0 then
-    begin
-      ACurrentValue := StringReplace(ACurrentValue, 'al', EmptyStr, [rfReplaceAll]);
-      Result := ACurrentName + ' = ' + ACurrentValue;
-    end
-    else
-    if Pos('#Class#', s) > 0 then
-    begin
-      if DFMClass = 'TImage' then
-        Result := StringReplace(s, '#Class#', ProcessImage(ACurrentValue, APad), [])
-      else
-      if DFMClass = 'TImageList' then
-        Result := StringReplace(s, '#Class#', ProcessImageList(ACurrentValue, APad), [])
-    end
-    else
-      Result := s + ' = ' + ACurrentValue;
-  end;
+      begin
+        s := IniSectionValues.Values[ACurrentName];
+        if s = EmptyStr
+        then s := ACurrentName;
+        if s = '#Delete#'
+        then Result := EmptyStr
+        else
+        if Pos('#TAlign#', s) > 0 then
+        begin
+          ACurrentValue := StringReplace(ACurrentValue, 'al', EmptyStr, [rfReplaceAll]);
+          Result := ACurrentName + ' = ' + ACurrentValue;
+        end
+        else
+        if Pos('#Class#', s) > 0 then
+        begin
+          if DFMClass = 'TImage' then
+            Result := StringReplace(s, '#Class#', ProcessImage(ACurrentValue, APad), [])
+          else
+          if DFMClass = 'TImageList' then
+            Result := StringReplace(s, '#Class#', ProcessImageList(ACurrentValue, APad), [])
+        end
+        else
+          Result := s + ' = ' + ACurrentValue;
+      end;
 end;
 
 (*  del

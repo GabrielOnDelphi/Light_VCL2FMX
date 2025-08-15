@@ -16,16 +16,18 @@ UNIT FormMain;
    This program requires https://github.com/GabrielOnDelphi/Delphi-LightSaber
 =============================================================================================================}
 
-interface
+// Accept drag and drop of DFM files into the GUI
 
-uses
+INTERFACE
+
+USES
   System.SysUtils, System.Types, System.UITypes, System.Classes, System.Win.Registry,
   FMX.Types, FMX.Controls, FMX.Forms, FMX.Dialogs, FMX.Layouts, FMX.Memo, FMX.StdCtrls,
   FMX.ScrollBox, FMX.Controls.Presentation, FMX.Memo.Types, FMX.DialogService,
-  Parser;
+  LightFmx.Common.AppData.Form, Parser;
 
 TYPE
-  TfrmMain = class(TForm)
+  TfrmMain = class(TLightForm)
     btnDictionary: TButton;
     btnOpenFile: TButton;
     btnProcess: TButton;
@@ -39,7 +41,6 @@ TYPE
     Splitter1: TSplitter;
     procedure btnOpenFileClick(Sender: TObject);
     procedure btnProcessClick(Sender: TObject);
-    procedure FormCreate(Sender: TObject);
     procedure btnSaveClick(Sender: TObject);
     procedure btnDictionaryClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
@@ -54,6 +55,9 @@ TYPE
     Procedure SaveSettings;
     Procedure UpdateSaveButtonVisibility;
     procedure LoadFile(aFileName: string);
+   public
+    procedure FormPostInitialize; override;
+    procedure FormPreRelease;     override;
   end;
 
 CONST RegKey= 'Light Vcl2Dfm';
@@ -65,14 +69,26 @@ IMPLEMENTATION
 
 USES
   Utils, FormConfig,
-  ccTextFile, ccCore, ccIO, LightFmx.DialogsDesktop, LightFMX.AppData;
+  LightCore.INIFile,
+  LightCore.AppData,
+  LightCore.TextFile,
+  LightCore,
+  LightCore.IO,
+  LightFmx.Common.DialogsBlocking, LightFmx.Common.AppData;
 
 
 
-procedure TfrmMain.FormCreate(Sender: TObject);
+procedure TfrmMain.FormPostInitialize;
 begin
+  AutoState:= asFull;  // Must set it before inherited!
+  inherited FormPostInitialize;
   LoadSettings;
-  //UpdateSaveButtonVisibility;
+end;
+
+procedure TfrmMain.FormPreRelease;
+begin
+  // Free stuff here
+  inherited FormPreRelease;
 end;
 
 
@@ -86,8 +102,21 @@ end;
 procedure TfrmMain.LoadFile(aFileName: string);
 begin
   if NOT FileExists(aFileName) then EXIT;
-  if not IsThisType(aFileName, 'dfm') then EXIT;
 
+  // Automatically "convert" wrong inputed PAS files to DFM.
+  if IsThisType(aFileName, 'PAS') then
+   begin
+     aFileName:= ForceExtension(aFileName, 'DFM');
+   end;
+
+  // DFM received?
+  if NOT IsThisType(aFileName, 'DFM') then
+    begin
+      MessageError('Only DFM files accepted. Received:'+ CRLF+ aFileName);
+      EXIT;
+    end;
+
+  // Is binary DFM?
   if NOT TParser.IsTextDFM(aFileName) then
     begin
       ShowMessage('Binary DFM file not supported!');
@@ -100,7 +129,7 @@ begin
   Caption  := InputDfmFile;
   BtnProcess.Enabled:= TRUE;
   mmoInputDfm.Lines.LoadFromFile(InputDfmFile);
-  mmOutput.Clear;
+  mmOutput.Lines.Clear;
 
   FreeAndNil(DfmParser);
   UpdateSaveButtonVisibility;
@@ -176,7 +205,7 @@ begin
       if AskToOverwrite
       AND (FileExists(OutputFMX) or FileExists(OutputPas))
       then
-        if MesajYesNo('Replace Existing Files?' + CRLF + OutputFMX + ' - ' + OutputPas)
+        if MessageYesNo('Replace Existing Files?' + CRLF + OutputFMX + ' - ' + OutputPas)
         then Save
         else
       else Save;
@@ -193,13 +222,13 @@ begin
 end;
 
 
-procedure TfrmMain.LoadSettings;
+procedure TfrmMain.LoadSettings;  //ToDo: move this to app's INI file!
 begin
   VAR Reg := TRegistryIniFile.Create(RegKey);
   try
     DictionaryFile:= Reg.ReadString('Files', 'ConfigFile', '');
     if NOT FileExists(DictionaryFile)
-    then DictionaryFile := AppData.CurFolder+ 'ConversionDict.ini';
+    then DictionaryFile := AppData.ExeFolder+ 'ConversionDict.ini';
 
     InputDfmFile  := Reg.ReadString('Files', 'InputDfm', '');
     LoadFile(InputDfmFile);

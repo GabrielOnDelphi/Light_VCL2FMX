@@ -8,7 +8,6 @@ object frmMain: TfrmMain
   FormFactor.Width = 320
   FormFactor.Height = 480
   FormFactor.Devices = [Desktop]
-  OnCreate = FormCreate
   OnClose = FormClose
   DesignerMasterStyle = 0
   object mmOutput: TMemo
@@ -25,8 +24,8 @@ object frmMain: TfrmMain
     Size.Height = 693.000000000000000000
     Size.PlatformDefault = False
     TabOrder = 1
-    Viewport.Width = 440.000000000000000000
-    Viewport.Height = 693.000000000000000000
+    Viewport.Width = 436.000000000000000000
+    Viewport.Height = 689.000000000000000000
   end
   object mmoInputDfm: TMemo
     Touch.InteractiveGestures = [Pan, LongTap, DoubleTap]
@@ -44,8 +43,8 @@ object frmMain: TfrmMain
     Size.Height = 693.000000000000000000
     Size.PlatformDefault = False
     TabOrder = 0
-    Viewport.Width = 457.000000000000000000
-    Viewport.Height = 693.000000000000000000
+    Viewport.Width = 453.000000000000000000
+    Viewport.Height = 689.000000000000000000
     object Layout1: TLayout
       Position.X = 592.000000000000000000
       Position.Y = 88.000000000000000000
