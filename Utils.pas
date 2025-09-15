@@ -56,7 +56,7 @@ procedure PopulateStringsFromArray(targetStrings: TStrings; sourceArray: TArrayO
 
 IMPLEMENTATION
 
-USES LightCore;
+USES LightCore, LightCore.Time;
 
 
 function GetArrayFromString(const inputString: String; separator: Char; removeQuotes: Boolean = False; trimValues: Boolean = True; dropEmpty: Boolean = False): TArrayOfStrings;

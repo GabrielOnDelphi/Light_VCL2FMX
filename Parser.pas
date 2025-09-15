@@ -23,7 +23,7 @@ USES
 
   ParseImage,
   ParseImageList,
-  LightCore,
+  LightCore, LightCore.Time, LightCore.Types,
   Utils;
 
 TYPE

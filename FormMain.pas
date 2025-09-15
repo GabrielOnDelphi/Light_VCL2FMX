@@ -72,7 +72,7 @@ USES
   LightCore.INIFile,
   LightCore.AppData,
   LightCore.TextFile,
-  LightCore,
+  LightCore, LightCore.Time, LightCore.Types,
   LightCore.IO,
   LightFmx.Common.DialogsBlocking, LightFmx.Common.AppData;
 
