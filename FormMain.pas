@@ -228,7 +228,7 @@ begin
   try
     DictionaryFile:= Reg.ReadString('Files', 'ConfigFile', '');
     if NOT FileExists(DictionaryFile)
-    then DictionaryFile := AppData.ExeFolder+ 'ConversionDict.ini';
+    then DictionaryFile := Appdata.AppFolder+ 'ConversionDict.ini';
 
     InputDfmFile  := Reg.ReadString('Files', 'InputDfm', '');
     LoadFile(InputDfmFile);
