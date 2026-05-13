@@ -52,7 +52,6 @@ TYPE
     DFMClass: String;
     ObjectName: String;
     OwnedObjs: TObjectList<TParser>;
-    FOwnedItems: TObjectList<TObject>;
     DepthLevel: Integer;
     Properties: TTwoDArrayOfString;
     FPropertyArraySz,
@@ -63,7 +62,6 @@ TYPE
     IniAddProperties,
     UsesTranslation,
     IniObjectTranslations: TStringList;
-    function AddArrayOfItemProperties(PropertyIdx: Integer; const Pad: String): String;
     function FMXClass: String;
     function FMXProperties(const Indent: String): String;
     function FMXSubObjects(const Indent: String): String;
@@ -82,8 +80,6 @@ TYPE
     procedure ReadProperties(const sData: String; List: TStringList; var Idx: Integer; var LineIndex: Integer);
 
     procedure UpdateUses(UsesList: TStrings);
-  protected
-    function GetPASLiveBindings: String;    // UNUSED
   public
     constructor Create(const CreateText: String; ContentList: TStringList; Depth: Integer; var LineIndex: Integer);
     destructor Destroy; override;
@@ -136,7 +132,6 @@ begin
   i := 0;
   DepthLevel := Depth;
   OwnedObjs  := TObjectList<TParser>.Create(True);
-  FOwnedItems := TObjectList<TObject>.Create(True);
 
   if Pos('object', Trim(CreateText)) = 1
   then
@@ -178,7 +173,6 @@ end;
 destructor TParser.Destroy;
 begin
   FreeAndNil(OwnedObjs);
-  FreeAndNil(FOwnedItems);
   FreeAndNil(IniReplaceValues);
   FreeAndNil(IniIncludeValues);
   FreeAndNil(IniSectionValues);
@@ -192,22 +186,17 @@ end;
 
 
 
-function TParser.AddArrayOfItemProperties(PropertyIdx: Integer; const Pad: String): String;
-begin
-  Result := Pad + '  item' + CRLF +
-            Pad + '  Prop1 = 6' + CRLF +
-            Pad + '  end>' + CRLF;
-  // Temporary patch
-end;
-
-
 class function TParser.IsTextDFM(const DfmFileName: String): Boolean;
 begin
   Result:= FileExists(DfmFileName);
   if Result then
     begin
       VAR DfmBody:= LightCore.TextFile.StringFromFile(DfmFileName);
-      Result:= PosInsensitive('object', DfmBody) < 20;
+      // Text DFMs start with 'object <name>: <class>' at offset 1; allow a few leading
+      // whitespace/BOM bytes. A binary DFM starts with 'TPF0' — Pos returns 0, which the
+      // original 'Pos < 20' check incorrectly accepted as text. Require a real hit.
+      VAR P:= PosInsensitive('object', DfmBody);
+      Result:= (P > 0) AND (P < 20);
     end;
 end;
 
@@ -236,7 +225,7 @@ begin
 
     Result := Builder.ToString;
   finally
-    Builder.Free;
+    FreeAndNil(Builder);
   end;
 end;
 
@@ -247,24 +236,26 @@ var
   sProp: String;
 begin
   Result := EmptyStr;
+  // NOTE: DFM '<...>' items collections (TPageControl pages, TDBGrid columns etc.) are NOT
+  // emitted here. ReadItems flattens the items into Properties[i, 1] as joined text, but no
+  // FMX emitter exists yet. The original fork had a TDfmToFmxListItem class (still parked in
+  // a block comment near the top of this unit) that handled this. Out of scope for now.
   for i := Low(Properties) to High(Properties) do
-
-    if Properties[i, 1] = '<'
-    then Result := Result + Indent +'  '+ TransformProperty(Properties[i, 0], Properties[i, 1]) + CRLF + AddArrayOfItemProperties(i, Indent +'  ') + CRLF
+    // Guard the indexed access: a malformed DFM can produce an empty value, which would
+    // range-error on Properties[i, 1][1] with $R+ (project default).
+    if (Length(Properties[i, 1]) > 0) AND (Properties[i, 1][1] = '{') then
+    begin
+      sProp := TransformProperty(Properties[i, 0], Properties[i, 1], Indent);
+      if not sProp.IsEmpty then
+        Result := Result + Indent +'  '+ sProp + CRLF;
+    end
     else
-      if Properties[i, 1][1] = '{' then
+      if Properties[i, 0] <> EmptyStr then
       begin
-        sProp := TransformProperty(Properties[i, 0], Properties[i, 1], Indent);
+        sProp := TransformProperty(Properties[i, 0], Properties[i, 1]);
         if not sProp.IsEmpty then
           Result := Result + Indent +'  '+ sProp + CRLF;
-      end
-      else
-        if Properties[i, 0] <> EmptyStr then
-        begin
-          sProp := TransformProperty(Properties[i, 0], Properties[i, 1]);
-          if not sProp.IsEmpty then
-            Result := Result + Indent +'  '+ sProp + CRLF;
-        end;
+      end;
 
   if IniAddProperties.Count > 0 then
     for i := 0 to Pred(IniAddProperties.Count) do
@@ -309,7 +300,7 @@ var
   iPos, StartPos, PosSemicol, IdxInterface: Integer;
 begin
   if not FileExists(PascalSourceFileName) then
-    raise Exception.CreateFmt('Pascal source file "%s" does not exist.', [PascalSourceFileName]);
+    raise Exception.Create('Pascal source file "' + PascalSourceFileName + '" does not exist.');
 
   Body := LightCore.TextFile.StringFromFile(PascalSourceFileName);
   if Body.Length <= 20 then Exit('');
@@ -372,11 +363,6 @@ begin
     if OwnedObjs[I] is TParser
     then TParser(OwnedObjs[I])._loadConfigFile(Ini);
 
-  if Assigned(FOwnedItems) then
-    for I := 0 to FOwnedItems.Count - 1 do
-      if FOwnedItems[I] is TParser
-      then TParser(FOwnedItems[I])._loadConfigFile(Ini);
-
   if IniSectionValues.Count < 1 then
   begin
     Ini.WriteString(DFMClass, 'Empty', 'Add Transformations');
@@ -395,7 +381,7 @@ begin
   try
     _loadConfigFile(Ini);
   finally
-    Ini.Free;
+    FreeAndNil(Ini);
   end;
 end;
 
@@ -434,7 +420,7 @@ begin
       then Builder.Append(' ').Append(UsesTranslation[I]).Append(',');
     Result := Builder.ToString.TrimRight([',']) + ';';
   finally
-    Builder.Free;
+    FreeAndNil(Builder);
   end;
 end;
 
@@ -566,39 +552,6 @@ begin
           Result := s + ' = ' + ACurrentValue;
       end;
 end;
-
-(*  del
-procedure TParser.UpdateUses(UsesList: TStrings);
-var
-  I, Idx: Integer;
-begin
-  // Replace existing units based on IniReplaceValues (if it exists)
-  // if Assigned(IniReplaceValues) then
-    for I := 0 to UsesList.Count - 1 do
-    begin
-      Idx := IniReplaceValues.IndexOfName(UsesList[I]);
-      if Idx >= 0 then
-        UsesList[I] := IniReplaceValues.ValueFromIndex[Idx];
-    end;
-
-  // Remove any empty entries
-  for I := UsesList.Count - 1 downto 0 do
-    if Trim(UsesList[I]).IsEmpty then
-      UsesList.Delete(I);
-
-  // Add new units from IniIncludeValues (if it exists)
-  if Assigned(IniIncludeValues) then
-    for I := 0 to IniIncludeValues.Count - 1 do
-      if UsesList.IndexOf(IniIncludeValues[I]) < 0 then
-        UsesList.Add(IniIncludeValues[I]);
-
-  // Handle owned objects recursively (if applicable)
-  if Assigned(OwnedObjs) then
-    for I := 0 to OwnedObjs.Count - 1 do
-      if OwnedObjs[I] is TParser then
-        TParser(OwnedObjs[I]).UpdateUsesStringList(UsesList);
-end;
-*)
 
 procedure TParser.UpdateUses(UsesList: TStrings);
 var
@@ -778,26 +731,6 @@ begin
         LiveBindings(Obj.OwnedObjs);
     end;
   end;
-end;
-
-
-function TParser.GetPASLiveBindings: String;
-var
-  I: Integer;
-begin
-  if (Length(FLinkControlList) = 0) and (Length(FLinkGridList) = 0) then
-    Exit(EmptyStr);
-
-  // Adiciona BindingsList
-  Result := '    BindingsList: TBindingsList; ';
-
-  // Go through the list of controls
-  for I := 0 to High(FLinkControlList) do
-    Result := Result + CRLF + '    LinkControlToField' + I.ToString + ': TLinkControlToField; ';
-
-  // Passa pela lista de grids
-  for I := 0 to High(FLinkGridList) do
-    Result := Result + CRLF + '    LinkGridToDataSourceBindSourceDB' + I.ToString + ': TLinkGridToDataSource; ';
 end;
 
 
