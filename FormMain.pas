@@ -21,7 +21,7 @@ UNIT FormMain;
 INTERFACE
 
 USES
-  System.SysUtils, System.Types, System.UITypes, System.Classes, System.Win.Registry,
+  System.SysUtils, System.Types, System.UITypes, System.Classes,
   FMX.Types, FMX.Controls, FMX.Forms, FMX.Dialogs, FMX.Layouts, FMX.Memo, FMX.StdCtrls,
   FMX.ScrollBox, FMX.Controls.Presentation, FMX.Memo.Types, FMX.DialogService,
   LightFmx.Common.AppData.Form, Parser;
@@ -32,12 +32,10 @@ TYPE
     btnOpenFile: TButton;
     btnProcess: TButton;
     btnSave: TButton;
-    Layout1: TLayout;
     layTop: TLayout;
     mmoInputDfm: TMemo;
     mmOutput: TMemo;
     OpenDialog: TOpenDialog;
-    SaveDialog: TSaveDialog;
     Splitter1: TSplitter;
     procedure btnOpenFileClick(Sender: TObject);
     procedure btnProcessClick(Sender: TObject);
@@ -56,11 +54,9 @@ TYPE
     Procedure UpdateSaveButtonVisibility;
     procedure LoadFile(aFileName: string);
    public
-    procedure FormPostInitialize; override;
-    procedure FormPreRelease;     override;
+    procedure AfterConstruction; override;   // Fires once after construction completes — load persisted settings here
+    procedure FormPreRelease;    override;
   end;
-
-CONST RegKey= 'Light Vcl2Dfm';
 
 VAR frmMain: TfrmMain;
 
@@ -68,6 +64,7 @@ IMPLEMENTATION
 {$R *.fmx}
 
 USES
+  System.IniFiles,
   Utils, FormConfig,
   LightCore.INIFile,
   LightCore.AppData,
@@ -78,10 +75,10 @@ USES
 
 
 
-procedure TfrmMain.FormPostInitialize;
+procedure TfrmMain.AfterConstruction;
 begin
-  AutoState:= asFull;  // Must set it before inherited!
-  inherited FormPostInitialize;
+  inherited AfterConstruction;
+  // AutoState is set in the DPR via CreateMainForm(..., asFull) — TLightForm.Loaded picks it up before construction returns
   LoadSettings;
 end;
 
@@ -162,8 +159,9 @@ begin
         LineIndex := 0;
         DfmLine := Trim(DfmBody[LineIndex]);
 
-        // Read the first line to check if it contains 'object'
-        if PosInsensitive('object', DfmLine) < 10 then
+        // Read the first line to check if it contains 'object' (same guard as IsTextDFM)
+        VAR P:= PosInsensitive('object', DfmLine);
+        if (P > 0) AND (P < 10) then
          begin
            DfmParser := TParser.Create(DfmLine, DfmBody, 0, LineIndex);
            DfmParser.LiveBindings;
@@ -222,30 +220,30 @@ begin
 end;
 
 
-procedure TfrmMain.LoadSettings;  //ToDo: move this to app's INI file!
+procedure TfrmMain.LoadSettings;
 begin
-  VAR Reg := TRegistryIniFile.Create(RegKey);
+  VAR Ini := TIniFile.Create(AppData.IniFile);
   try
-    DictionaryFile:= Reg.ReadString('Files', 'ConfigFile', '');
+    DictionaryFile:= Ini.ReadString('Files', 'ConfigFile', '');
     if NOT FileExists(DictionaryFile)
-    then DictionaryFile := Appdata.AppFolder+ 'ConversionDict.ini';
+    then DictionaryFile := Appdata.AppFolder + 'ConversionDict.ini';
 
-    InputDfmFile  := Reg.ReadString('Files', 'InputDfm', '');
+    InputDfmFile  := Ini.ReadString('Files', 'InputDfm', '');
     LoadFile(InputDfmFile);
   finally
-    FreeAndNil(Reg);
+    FreeAndNil(Ini);
   end;
 end;
 
 
 procedure TfrmMain.SaveSettings;
 begin
-  VAR Reg := TRegistryIniFile.Create(RegKey);
+  VAR Ini := TIniFile.Create(AppData.IniFile);
   try
-    Reg.WriteString('Files', 'ConfigFile', DictionaryFile);
-    Reg.WriteString('Files', 'InputDFm'  , InputDfmFile);
+    Ini.WriteString('Files', 'ConfigFile', DictionaryFile);
+    Ini.WriteString('Files', 'InputDfm'  , InputDfmFile);
   finally
-    FreeAndNil(Reg);
+    FreeAndNil(Ini);
   end;
 end;
 
