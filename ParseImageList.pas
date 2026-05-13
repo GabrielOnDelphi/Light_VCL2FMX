@@ -83,7 +83,6 @@ begin
               Lgraphic.GetBitmap(I, bmp);
               // Salva no Stream
               bmp.SaveToStream(stream);
-              bmp.SaveToFile('D:\teste.bmp');
               // Adiciona imagem no FMX
               stream.Position := 0;
               img1.Source.Add.MultiResBitmap.Add.Bitmap.LoadFromStream(stream);
