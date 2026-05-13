@@ -2,7 +2,7 @@
 
 {=============================================================================================================
    Gabriel Moraru
-   2025.04
+   2026.05.13
    Convert VCL to FMX
 --------------------------------------------------------------------------------------------------------------
    This program requires https://github.com/GabrielOnDelphi/Delphi-LightSaber
@@ -13,41 +13,17 @@
 INTERFACE
 
 USES
-  System.Classes, System.UITypes, System.SysUtils,
-  FMX.Forms, FMX.DialogService;
+  System.Classes, System.SysUtils;
 
 TYPE
   TArrayOfStrings        = array of String;
-  ArrayOfStrings         = TArrayOfStrings;
-  TArrayOfUnicodeStrings = array of UnicodeString;
-  TArrayOfReal           = array of Real;
-  TArrayOfInteger        = array of Integer;
-  TArrayOfLongWord       = array of LongWord;
+  ArrayOfStrings         = TArrayOfStrings;     // alias kept for TTwoDArrayOfString declaration below
   TArrayOfObjects        = array of TObject;
-  TTwoDArrayOfInteger    = array of TArrayOfInteger;
   TTwoDArrayOfString     = array of ArrayOfStrings;
-
-  StrCodeInfoRec = record
-    CodePage: Word;
-    ElementLength: Word;
-    RefCount: Integer;
-    Length: Integer;
-  end;
-
-  PStrCodeInfoRec = ^StrCodeInfoRec;
-
-CONST
-  NullStrCodeInfo: StrCodeInfoRec = (CodePage: 0; ElementLength: 0; RefCount: 0; Length: 0);
-  ZSISOffset = 0;
-  CRP = AnsiChar(#141); // Carriage return + 128
-  LFP = AnsiChar(#138); // Line feed + 128
 
 
 // Parses a string into an array of strings based on a separator character
 function GetArrayFromString(const inputString: String; separator: Char; removeQuotes: Boolean = False; trimValues: Boolean = True; dropEmpty: Boolean = False): TArrayOfStrings;
-
-// Extracts the first field from a string based on a separator and updates the source string
-function FieldSep(var sourceString: String; separator: Char): String;
 
 // Populates a TStrings object from an array of strings, optionally with associated objects
 procedure PopulateStringsFromArray(targetStrings: TStrings; sourceArray: TArrayOfStrings; objectArray: TArrayOfObjects = nil);
@@ -55,8 +31,6 @@ procedure PopulateStringsFromArray(targetStrings: TStrings; sourceArray: TArrayO
 
 
 IMPLEMENTATION
-
-USES LightCore, LightCore.Time;
 
 
 function GetArrayFromString(const inputString: String; separator: Char; removeQuotes: Boolean = False; trimValues: Boolean = True; dropEmpty: Boolean = False): TArrayOfStrings;
@@ -124,32 +98,6 @@ begin
     SetLength(Result, Length(Result) + 1);
     Result[High(Result)] := fieldValue;
   end;
-end;
-
-
-function FieldSep(var sourceString: String; separator: Char): String;
-var
-  startPosition, endPosition: Integer;
-begin
-  if sourceString = '' then Exit('');
-
-  // Find the start position of the first non-separator character
-  startPosition := 1;
-  while (startPosition <= Length(sourceString)) and (sourceString[startPosition] = separator) do
-    Inc(startPosition);
-
-  // Find the position of the separator character or the end of the string
-  endPosition := startPosition;
-  while (endPosition <= Length(sourceString)) and (sourceString[endPosition] <> separator) do
-    Inc(endPosition);
-
-  // Extract the substring
-  Result := Copy(sourceString, startPosition, endPosition - startPosition);
-
-  // Update the input string to exclude the processed part
-  if endPosition <= Length(sourceString)
-  then sourceString := Copy(sourceString, endPosition + 1, Length(sourceString) - endPosition)
-  else sourceString := '';
 end;
 
 
