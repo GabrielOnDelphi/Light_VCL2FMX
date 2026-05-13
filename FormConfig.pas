@@ -1,21 +1,26 @@
-{**********************************************}
-{                                              }
-{              Eduardo Rodrigues               }
-{                 11/09/2019                   }
-{                                              }
-{**********************************************}
-unit FormConfig;
+UNIT FormConfig;
+
+{=============================================================================================================
+   Gabriel Moraru
+   2026.05.13
+   Convert VCL to FMX — dictionary editor
+--------------------------------------------------------------------------------------------------------------
+   Originally by Eduardo Rodrigues (11/09/2019). Rewritten 2026.05 to:
+     * Read/write settings via AppData.IniFile (was: Windows Registry under inconsistent keys).
+     * FreeAndNil everywhere.
+     * Remove unused Winapi.Windows / System.Win.Registry uses.
+
+   This program requires https://github.com/GabrielOnDelphi/Delphi-LightSaber
+=============================================================================================================}
 
 interface
 
 uses
-  Winapi.Windows,
   System.SysUtils,
   System.Types,
   System.UITypes,
   System.Classes,
   System.IOUtils,
-  System.Win.Registry,
   System.IniFiles,
   FMX.Types,
   FMX.Controls,
@@ -52,14 +57,16 @@ type
 implementation
 
 uses
-  FormMain;
+  FormMain,
+  LightCore.AppData,
+  LightFmx.Common.AppData;
 
 {$R *.fmx}
 
 procedure TfrmConfig.btnAbrirClick(Sender: TObject);
 var
   Dlg: TOpenDialog;
-  RegFile: TRegistryIniFile;
+  AppIni: TIniFile;
 begin
   Dlg := TOpenDialog.Create(Self);
   try
@@ -69,12 +76,13 @@ begin
     Dlg.Filter := 'INI Files|*.ini|All Files|*.*';
     if Dlg.Execute then
     begin
-      RegFile := TRegistryIniFile.Create(RegKey);
+      AppIni := TIniFile.Create(AppData.IniFile);
       try
-        RegFile.WriteString('Files', 'inifile', Dlg.FileName);
+        AppIni.WriteString('Files', 'ConfigFile', Dlg.FileName);
       finally
-        FreeAndNil(RegFile);
+        FreeAndNil(AppIni);
       end;
+      edtINI.Text := Dlg.FileName;
     end;
   finally
     FreeAndNil(Dlg);
@@ -106,22 +114,22 @@ end;
 
 procedure TfrmConfig.btnSalvarClick(Sender: TObject);
 var
-  RegFile: TRegistryIniFile;
-  Ini: TIniFile;
+  AppIni: TIniFile;
+  DictIni: TIniFile;
   IniFileName, Key, Value: String;
   I, J: Integer;
 begin
   tvINI.Sorted := True;
-  RegFile := TRegistryIniFile.Create(RegKey);
+  AppIni := TIniFile.Create(AppData.IniFile);
   try
-    IniFileName := RegFile.ReadString('Files', 'Inifile', '');
+    IniFileName := AppIni.ReadString('Files', 'ConfigFile', '');
     if FileExists(IniFileName) then
     begin
       DeleteFile(ChangeFileExt(IniFileName, '.bkp'));
       RenameFile(IniFileName, ChangeFileExt(IniFileName, '.bkp'));
     end;
 
-    Ini := TIniFile.Create(IniFileName);
+    DictIni := TIniFile.Create(IniFileName);
     try
       for I := 0 to tvINI.Count - 1 do
       begin
@@ -131,14 +139,14 @@ begin
         begin
           Key   := Copy(tvINI.Items[I].Items[J].Text, 1, Pos('=', tvINI.Items[I].Items[J].Text) - 1);
           Value := Copy(tvINI.Items[I].Items[J].Text, Pos('=', tvINI.Items[I].Items[J].Text) + 1, MaxInt);
-          Ini.WriteString(tvINI.Items[I].Text, Key, Value);
+          DictIni.WriteString(tvINI.Items[I].Text, Key, Value);
         end;
       end;
     finally
-      FreeAndNil(Ini);
+      FreeAndNil(DictIni);
     end;
   finally
-    FreeAndNil(RegFile);
+    FreeAndNil(AppIni);
   end;
 end;
 
@@ -149,17 +157,17 @@ end;
 
 procedure TfrmConfig.FormCreate(Sender: TObject);
 var
-  RegFile: TRegistryIniFile;
+  AppIni: TIniFile;
   Ini: TIniFile;
   IniFileName, ClassName, Item: String;
   IniSections, IniValues: TStringList;
   tvObj, tvSec: TTreeViewItem;
 begin
-  RegFile := TRegistryIniFile.Create('DFMtoFMXConvertor');
+  AppIni := TIniFile.Create(AppData.IniFile);
   try
-    IniFileName := RegFile.ReadString('Files', 'Inifile', '');
+    IniFileName := AppIni.ReadString('Files', 'ConfigFile', '');
   finally
-    FreeAndNil(RegFile);
+    FreeAndNil(AppIni);
   end;
   edtINI.Text := IniFileName;
 
