@@ -26,7 +26,6 @@ implementation
 
 uses
   System.Classes,
-  Vcl.ExtCtrls,
   System.SysUtils,
   Vcl.Imaging.Jpeg,
   Vcl.Imaging.GIFImg,
@@ -50,49 +49,49 @@ var
   Loutput: TMemoryStream;
   LclsName: ShortString;
   Lgraphic: TGraphic;
-  img2: Vcl.ExtCtrls.TImage;
   img1: FMX.Objects.TImage;
   stream: TMemoryStream;
 begin
-  // Remove caracteres
+  // Remove the surrounding braces of the DFM hex blob
   sData := StringReplace(sData, '{', EmptyStr, []);
   sData := StringReplace(sData, '}', EmptyStr, []);
 
-  // Inicializa
   Linput  := sData;
   Loutput := TMemoryStream.Create;
   try
-    // Carrega dados para memoria
+    // Decode HEX into memory. The DFM Picture.Data layout is:
+    //   <short-string class name><graphic payload>
     Loutput.Size := Length(Linput) div 2;
     HexToBin(PChar(Linput), Loutput.Memory^, Loutput.Size);
     LclsName := PShortString(Loutput.Memory)^;
 
-    // Cria imagem FMX
+    // Build the FMX target image
     img1 := FMX.Objects.TImage.Create(nil);
-    // Cria imagem VCL
-    Lgraphic := TGraphicClass(FindClass(UTF8ToString(LclsName))).Create;
     try
-      // Carrega dados para imagem VCL
-      Loutput.Position := 1 + Length(LclsName);
-      TGraphicAccess(Lgraphic).ReadData(Loutput);
-      img2 := TImage.Create(nil);
-      img2.Picture.Assign(Lgraphic);
-
-      // Converte de VCL para FMX
-      stream:= TMemoryStream.Create;
+      // Instantiate the matching VCL TGraphic descendant for the class name we just read
+      Lgraphic := TGraphicClass(FindClass(UTF8ToString(LclsName))).Create;
       try
-        img2.Picture.SaveToStream(stream);
-        stream.Position := 0;
-        img1.Bitmap.LoadFromStream(stream);
-      finally
-        FreeAndNil(stream);
-      end;
+        // Read the graphic payload past the short-string class name header
+        Loutput.Position := 1 + Length(LclsName);
+        TGraphicAccess(Lgraphic).ReadData(Loutput);
 
-      // Retorna imagem convertida de FMX para texto
-      Result := ImageToHex(img1, 64);
+        // Round-trip VCL → FMX via a memory stream. We can use the VCL TGraphic directly;
+        // the intermediate Vcl.ExtCtrls.TImage from the original fork was unnecessary and leaked.
+        stream := TMemoryStream.Create;
+        try
+          Lgraphic.SaveToStream(stream);
+          stream.Position := 0;
+          img1.Bitmap.LoadFromStream(stream);
+        finally
+          FreeAndNil(stream);
+        end;
+
+        Result := ImageToHex(img1, 64);
+      finally
+        FreeAndNil(Lgraphic);
+      end;
     finally
       FreeAndNil(img1);
-      FreeAndNil(Lgraphic);
     end;
   finally
     FreeAndNil(Loutput);
