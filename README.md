@@ -23,3 +23,4 @@ Improvements:
  - Got read of uninitialized objects
  - Eliminated some memory leaks. 
  
+The program needs the [LightSaber](https://github.com/GabrielOnDelphi/Delphi-LightSaber) library and FastMM4; the Debug build also uses the optional [Autopilot for Delphi](https://gabrielmoraru.com/my-delphi-code/autopilot-for-delphi/) bridge, which lets an AI assistant drive the running app.
